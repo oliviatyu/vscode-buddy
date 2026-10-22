@@ -1,0 +1,308 @@
+.home-v2 {
+  --home-bg: #0b0c0c;
+  --home-panel: #101111;
+  --home-panel-deep: #080909;
+  --home-line: #252525;
+  --home-line-strong: #333536;
+  --home-text: #f5f5f5;
+  --home-muted: #bfbfbf;
+  --home-muted-2: #8c8c8c;
+  --home-accent: #007acc;
+  --home-accent-hover: #0a8ae0;
+  --home-radius: 4px;
+  background: var(--home-bg);
+  color: var(--home-text);
+  font-size: 14px;
+}
+.home-v2 .community-footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: end;
+  margin-top: 130px;
+}
+.home-v2 .fun-release-cloud {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.home-v2 .release-timeline-scroll {
+  width: 100%;
+  min-width: 0;
+}
+.home-v2 .release-timeline-scroll:focus-visible {
+  outline: 2px solid var(--home-accent);
+  outline-offset: 3px;
+}
+.home-v2 .release-runner {
+  position: relative;
+  height: clamp(190px, 18vw, 220px);
+  isolation: isolate;
+  touch-action: manipulation;
+  user-select: none;
+}
+.home-v2 .release-runner:focus-visible {
+  outline: 2px solid var(--home-accent);
+  outline-offset: 3px;
+}
+.home-v2 .release-runner.is-keyboard-active:not([data-state=idle]):focus-visible {
+  outline: none;
+}
+.home-v2 .release-runner.is-keyboard-active:not([data-state=idle]):focus-visible .release-runner-player::after {
+  position: absolute;
+  right: 50%;
+  bottom: -2px;
+  width: 32px;
+  height: 3px;
+  border-radius: 1px;
+  background: var(--home-accent);
+  box-shadow: 0 0 8px rgba(0, 122, 204, 0.5);
+  content: "";
+  transform: translateX(50%);
+}
+.home-v2 .release-runner-meta {
+  margin: 12px 0 0;
+  color: var(--home-muted-2);
+  font-size: 11px;
+}
+.home-v2 .release-runner-hud {
+  position: absolute;
+  z-index: 5;
+  top: 8px;
+  right: 8px;
+  left: 8px;
+  display: flex;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+.home-v2 .release-runner-jump,
+.home-v2 .release-runner-pause,
+.home-v2 .release-runner-action {
+  display: inline-grid;
+  min-width: 32px;
+  min-height: 32px;
+  place-items: center;
+  border: 1px solid #4a4a4a;
+  border-radius: 4px;
+  background: rgba(10, 11, 11, 0.94);
+  color: var(--home-muted);
+}
+.home-v2 .release-runner-pause {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  pointer-events: auto;
+}
+.home-v2 .release-runner-jump {
+  display: none;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  pointer-events: auto;
+}
+.home-v2 .release-runner-jump[hidden],
+.home-v2 .release-runner-pause[hidden],
+.home-v2 .release-runner-action[hidden] {
+  display: none;
+}
+.home-v2 .release-runner-pause span,
+.home-v2 .release-runner-pause span::after {
+  display: block;
+  width: 2px;
+  height: 10px;
+  background: currentColor;
+  content: "";
+}
+.home-v2 .release-runner-pause span {
+  position: relative;
+  transform: translateX(-2px);
+}
+.home-v2 .release-runner-pause span::after {
+  position: absolute;
+  left: 5px;
+}
+.home-v2 .release-runner-action {
+  position: absolute;
+  z-index: 5;
+  top: 8px;
+  left: 8px;
+  grid-auto-flow: column;
+  gap: 6px;
+  padding: 5px 9px;
+  font-size: 10px;
+  line-height: 14px;
+}
+.home-v2 .release-runner-jump:hover,
+.home-v2 .release-runner-pause:hover,
+.home-v2 .release-runner-action:hover {
+  border-color: #707070;
+  color: #fff;
+}
+.home-v2 .release-runner-play {
+  width: 0;
+  height: 0;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 6px solid currentColor;
+}
+.home-v2 .release-runner-stage,
+.home-v2 .release-runner-labels,
+.home-v2 .release-runner-obstacles {
+  position: absolute;
+  inset: 0;
+}
+.home-v2 .release-runner-stage {
+  overflow: hidden;
+}
+.home-v2 .release-runner:not([data-state=running]) .release-runner-stage {
+  cursor: grab;
+  touch-action: pan-y;
+}
+.home-v2 .release-runner.is-dragging .release-runner-stage,
+.home-v2 .release-runner.is-dragging .release-runner-label {
+  cursor: grabbing;
+}
+.home-v2 .release-runner-ground {
+  position: absolute;
+  right: 0;
+  bottom: 13px;
+  left: 0;
+  height: 1px;
+  background: var(--home-line-strong);
+}
+.home-v2 .release-runner-player {
+  position: absolute;
+  z-index: 3;
+  bottom: 14px;
+  left: clamp(28px, 7%, 68px);
+  display: block;
+  width: 24px;
+  height: 24px;
+  will-change: transform;
+}
+.home-v2 .release-runner-player img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+.home-v2 .release-runner[data-state=running] .release-runner-player:not(.is-airborne) img {
+  animation: release-runner-step 180ms steps(2, jump-none) infinite;
+}
+.home-v2 .release-runner-player.has-crashed img {
+  filter: brightness(0.7);
+  transform: rotate(7deg);
+  transform-origin: 60% 100%;
+}
+@keyframes release-runner-step {
+  50% {
+    transform: translateY(1px);
+  }
+}
+.home-v2 .release-runner-label {
+  position: absolute;
+  z-index: 2;
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 10px;
+  border: 1px solid #414141;
+  border-radius: 4px;
+  background: rgba(8, 9, 9, 0.88);
+  color: #bfbfbf;
+  font-size: 10px;
+  line-height: 14px;
+  text-decoration: none;
+  white-space: nowrap;
+  will-change: transform;
+}
+.home-v2 .release-runner:not([data-state=running]) .release-runner-label {
+  cursor: pointer;
+}
+.home-v2 .release-runner:not([data-state=running]) .release-runner-label:hover {
+  border-color: #707070;
+  color: #fff;
+}
+.home-v2 .release-runner-label:focus-visible {
+  outline: 2px solid var(--home-accent);
+  outline-offset: 2px;
+}
+.home-v2 .release-runner-label.is-landed {
+  border-color: var(--home-accent);
+  box-shadow: 0 0 0 1px rgba(0, 122, 204, 0.18);
+}
+.home-v2 .release-runner-label-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #008de5;
+  box-shadow: 0 0 8px rgba(0, 141, 229, 0.25);
+}
+.home-v2 .release-runner-obstacle {
+  position: absolute;
+  z-index: 1;
+  bottom: 14px;
+  left: 0;
+  max-width: none;
+  image-rendering: pixelated;
+  will-change: transform;
+}
+.home-v2 .community-footer {
+  margin-top: 0;
+}
+
+@media (max-width: 640px), (pointer: coarse) {
+  .home-v2 .release-runner-label {
+    min-height: 44px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    font-size: 11px;
+  }
+  .home-v2 .release-runner-hud {
+    justify-content: space-between;
+  }
+  .home-v2 .release-runner-jump {
+    display: grid;
+    width: 44px;
+    height: 44px;
+  }
+  .home-v2 .release-runner-pause {
+    width: 44px;
+    height: 44px;
+  }
+  .home-v2 .release-runner-action {
+    min-height: 44px;
+    padding-right: 12px;
+    padding-left: 12px;
+    font-size: 11px;
+  }
+}
+@media (max-width: 640px) {
+  .home-v2 .release-runner {
+    height: 220px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-v2 .release-runner-player img {
+    animation: none !important;
+  }
+}
+@media (forced-colors: active) {
+  .home-v2 .release-runner,
+  .home-v2 .release-runner-label,
+  .home-v2 .release-runner-action,
+  .home-v2 .release-runner-jump,
+  .home-v2 .release-runner-pause {
+    border-color: CanvasText;
+  }
+  .home-v2 .release-runner-ground,
+  .home-v2 .release-runner-label-dot {
+    background: CanvasText;
+  }
+  .home-v2 .release-runner.is-keyboard-active:not([data-state=idle]):focus-visible .release-runner-player::after {
+    background: Highlight;
+    box-shadow: none;
+  }
+}

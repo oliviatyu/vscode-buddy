@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tamagotchi – Processing</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: #d0d0d0;
+      font-family: monospace;
+    }
+
+    canvas {
+      width: 240px;
+      height: 240px;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      border: 2px solid #888;
+      background: #ffffff;
+    }
+
+    p {
+      margin-top: 12px;
+      font-size: 13px;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="creature" width="12" height="12"></canvas>
+  <p>creature_processing · 12 × 12 px</p>
+
+  <script>
+    const canvas = document.getElementById('creature');
+    const ctx = canvas.getContext('2d');
+    ctx.translate(1, 0); // center the 11-wide sprite in the 12-wide canvas
+
+    // ── Exact Figma sprites (12×12, 0=bg, 1=dark #221f20, 2=gray #cbccce) ──
+    const NORMAL = [
+      [0,0,0,1,0,0,0,1,0,0,0,0],
+      [0,0,0,0,1,0,1,0,0,0,0,0],
+      [0,0,0,0,1,0,1,0,0,0,0,0],
+      [0,0,0,0,0,1,0,0,0,0,0,0],
+      [0,0,0,0,1,0,1,0,0,0,0,0],
+      [0,0,0,1,0,0,0,1,0,0,0,0],
+      [0,0,1,0,0,0,0,0,1,0,0,0],
+      [0,1,2,0,1,0,0,0,0,1,0,0],
+      [1,2,0,0,0,1,0,0,0,0,1,0],
+      [1,2,2,0,1,0,1,1,1,0,1,0],
+      [1,0,0,0,0,0,0,0,0,0,1,0],
+      [0,1,1,1,1,1,1,1,1,1,0,0],
+    ];
+
+    const RECT = [
+      [0,0,0,1,0,0,0,1,0,0,0,0],
+      [0,0,0,0,1,0,1,0,0,0,0,0],
+      [0,0,0,0,1,0,1,0,0,0,0,0],
+      [0,0,0,0,0,1,0,0,0,0,0,0],
+      [0,1,1,1,1,0,1,1,1,1,0,0],
+      [1,2,2,0,0,0,0,0,0,0,1,0],
+      [1,2,0,0,1,0,0,0,0,0,1,0],
+      [1,2,0,0,0,1,0,0,0,0,1,0],
+      [1,2,0,0,1,0,0,0,0,0,1,0],
+      [1,2,0,0,0,0,1,1,1,0,1,0],
+      [1,2,2,0,0,0,0,0,0,0,1,0],
+      [0,1,1,1,1,1,1,1,1,1,0,0],
+    ];
+
+    const C = ['', '#221f20', '#cbccce']; // color lookup (index 1 or 2)
+
+    // ── Classify every cell into one of four buckets ──────────────────────
+    const structural  = []; // same value, same pos  → always drawn in place
+    const colorChange = []; // different non-zero val → snap color at t=0.5
+    const vanishing   = []; // NORMAL only            → move toward nearest RECT px
+    const emerging    = []; // RECT only              → emerge from nearest NORMAL px
+
+    for (let y = 0; y < 12; y++) {
+      for (let x = 0; x < 12; x++) {
+        const n = NORMAL[y][x], r = RECT[y][x];
+        if (n !== 0 && n === r)          structural.push({ x, y, c: n });
+        else if (n !== 0 && r !== 0)     colorChange.push({ x, y, nc: n, rc: r });
+        else if (n !== 0 && r === 0)     vanishing.push({ x, y, c: n, tx: x, ty: y });
+        else if (n === 0 && r !== 0)     emerging.push({ x, y, c: r, sx: x, sy: y });
+      }
+    }
+
+    // Collect all RECT and NORMAL active positions for nearest-neighbour lookup
+    const allRect   = structural.map(p => [p.x, p.y])
+      .concat(colorChange.map(p => [p.x, p.y]))
+      .concat(emerging.map(p => [p.x, p.y]));
+    const allNormal = structural.map(p => [p.x, p.y])
+      .concat(colorChange.map(p => [p.x, p.y]))
+      .concat(vanishing.map(p => [p.x, p.y]));
+
+    function nearest(px, py, list) {
+      let best = list[0], bd = Infinity;
+      for (const [x, y] of list) {
+        const d = Math.abs(px - x) + Math.abs(py - y);
+        if (d < bd) { bd = d; best = [x, y]; }
+      }
+      return best;
+    }
+
+    // Assign travel targets: vanishing → nearest RECT pixel; emerging ← nearest NORMAL pixel
+    for (const p of vanishing) { [p.tx, p.ty] = nearest(p.x, p.y, allRect); }
+    for (const p of emerging)  { [p.sx, p.sy] = nearest(p.x, p.y, allNormal); }
+
+    // ── Draw frame ────────────────────────────────────────────────────────
+    function drawFrame(t) {
+      ctx.clearRect(0, 0, 12, 12);
+
+      for (const p of structural) {
+        ctx.fillStyle = C[p.c];
+        ctx.fillRect(p.x, p.y, 1, 1);
+      }
+
+      for (const p of colorChange) {
+        ctx.fillStyle = C[t < 0.5 ? p.nc : p.rc];
+        ctx.fillRect(p.x, p.y, 1, 1);
+      }
+
+      for (const p of vanishing) {
+        ctx.fillStyle = C[p.c];
+        ctx.fillRect(Math.round(p.x + (p.tx - p.x) * t), Math.round(p.y + (p.ty - p.y) * t), 1, 1);
+      }
+
+      for (const p of emerging) {
+        ctx.fillStyle = C[p.c];
+        ctx.fillRect(Math.round(p.sx + (p.x - p.sx) * t), Math.round(p.sy + (p.y - p.sy) * t), 1, 1);
+      }
+    }
+
+    // ── Cosine oscillation 0 → 1 → 0 over PERIOD ms ─────────────────────
+    const PERIOD = 3200;
+    let startTime = null;
+
+    function animate(ts) {
+      if (!startTime) startTime = ts;
+      const raw = ((ts - startTime) % PERIOD) / PERIOD;
+      const t = (1 - Math.cos(raw * Math.PI * 2)) / 2;
+      drawFrame(t);
+      requestAnimationFrame(animate);
+    }
+
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

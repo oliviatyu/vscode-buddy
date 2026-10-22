@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VS Code Agent Sessions – Polish Push May 2026</title>
+  <style>
+    /* ── Design tokens (Figma: Polish-Push-May-2026, node 3197:7020) ──────── */
+    :root {
+      --agents-bg:            #fafafd;
+      --panel-bg:             #ffffff;
+      --panel-border:         #e4e5e6;
+      --foreground:           #202020;
+      --desc-fg:              #606060;
+      --muted:                #8c8c8c;
+      --active-sel-bg:        rgba(0, 105, 204, 0.1);
+      --btn-bg:               #0069cc;
+      --btn-fg:               #ffffff;
+      --btn-sec-bg:           #eaeaea;
+      --btn-sec-border:       #eeeef1;
+      --new-btn-border:       #d8d8d8;
+      --chat-input-bg:        #f7f7fa;
+      --git-added:            #587c0c;
+      --git-removed:          #ad0707;
+      /* Spacing (Figma size-N tokens) */
+      --s2: 2px; --s4: 4px; --s6: 6px; --s8: 8px;
+      --s10: 10px; --s12: 12px; --s16: 16px; --s24: 24px; --s40: 40px;
+      /* Border radius */
+      --r-outer: 18px;  /* outermost window */
+      --r-panel: 8px;   /* outer-radius – panels */
+      --r-inner: 6px;   /* inner-radius – session items, chat input */
+      --r-small: 4px;   /* small-radius – buttons, tabs, pills */
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, "SF Pro Text", BlinkMacSystemFont,
+                   "Helvetica Neue", Arial, sans-serif;
+      background: #d0d0d4;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 32px;
+    }
+
+    svg { display: block; flex-shrink: 0; }
+
+    /* ── Root frame ─────────────────────────────────────────────────────────
+       Figma: rounded-[18px], bg #fafafd, gap 16px, pb 16px, pr 16px         */
+    .root {
+      background: var(--agents-bg);
+      border-radius: var(--r-outer);
+      overflow: hidden;
+      display: flex;
+      gap: var(--s16);
+      padding: 0 var(--s16) var(--s16) 0;
+      width: 1440px;
+      height: 877px;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       SIDEBAR
+    ═══════════════════════════════════════════════════════════════════════ */
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      padding-left: var(--s16);
+      flex-shrink: 0;
+      width: 280px;
+      overflow: hidden;
+    }
+
+    /* Titlebar-left: h-[35px] */
+    .titlebar-left {
+      display: flex;
+      align-items: center;
+      height: 35px;
+      flex-shrink: 0;
+      background: var(--agents-bg);
+    }
+
+    .window-controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: 80px;
+      padding-left: 12px;
+    }
+    .dot { width: 12px; height: 12px; border-radius: 50%; }
+    .dot.close { background: #ff5f57; }
+    .dot.min   { background: #febc2e; }
+    .dot.max   { background: #28c840; }
+
+    .left-toolbar {
+      display: flex;
+      align-items: center;
+      gap: var(--s2);
+      padding: 0 var(--s10);
+      height: 35px;
+    }
+
+    .toolbar-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: var(--r-small);
+      color: var(--desc-fg);
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+    .toolbar-btn.faded { opacity: 0.4; }
+
+    /* Sessions header: py-[8px] */
+    .sessions-header {
+      display: flex;
+      align-items: center;
+      padding: var(--s8) 0;
+      width: 100%;
+      flex-shrink: 0;
+    }
+
+    /* font: SF Pro Text Semibold 13px */
+    .sessions-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--foreground);
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .header-actions { display: flex; align-items: center; gap: var(--s4); }
+
+    /* New button: border #d8d8d8, rounded-[4px], px-8 py-6, font 11px */
+    .new-btn {
+      display: flex;
+      align-items: center;
+      gap: var(--s4);
+      padding: var(--s6) var(--s8);
+      border: 1px solid var(--new-btn-border);
+      border-radius: var(--r-small);
+      background: transparent;
+      color: var(--muted);
+      font-size: 11px;
+      font-family: inherit;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .new-btn-label { font-weight: 700; }
+    .new-btn-kbd   { display: flex; gap: var(--s2); font-weight: 400; }
+
+    .icon-btn {
+      display: flex;
+      align-items: center;
+      padding: var(--s4);
+      border-radius: var(--r-small);
+      cursor: pointer;
+    }
+
+    /* Section header: h-[22px], font Medium 12px, color #8c8c8c */
+    .section-header {
+      display: flex;
+      align-items: center;
+      height: 22px;
+      padding-right: var(--s16);
+      flex-shrink: 0;
+      width: 100%;
+    }
+    .section-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      flex: 1;
+      min-width: 0;
+    }
+
+    /* Session items: h-[54px], p-[8px], rounded-[6px], gap-[6px] */
+    .session-item {
+      display: flex;
+      gap: var(--s6);
+      height: 54px;
+      align-items: flex-start;
+      padding: var(--s8);
+      border-radius: var(--r-inner);
+      flex-shrink: 0;
+      width: 100%;
+      overflow: hidden;
+    }
+    .session-item.selected { background: var(--active-sel-bg); }
+
+    .session-icon {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 16px;
+      height: 38px;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+
+    .session-main {
+      display: flex;
+      flex-direction: column;
+      gap: var(--s4);
+      flex: 1;
+      min-width: 0;
+      height: 38px;
+      overflow: hidden;
+    }
+
+    .session-title-row {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    /* font: SF Pro Text Regular 13px, color foreground */
+    .session-title {
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--foreground);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .session-details-row {
+      display: flex;
+      align-items: center;
+      gap: var(--s4);
+      width: 100%;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    /* font: SF Pro Text Regular 11px, color desc-fg */
+    .detail-text {
+      font-size: 11px;
+      font-weight: 400;
+      color: var(--desc-fg);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .diff-group { display: flex; gap: var(--s2); font-size: 11px; white-space: nowrap; flex-shrink: 0; }
+    .diff-added   { color: var(--git-added); }
+    .diff-removed { color: var(--git-removed); }
+
+    /* Customizations footer: pushes to bottom */
+    .customizations {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      justify-content: flex-end;
+      width: 100%;
+      min-height: 0;
+    }
+
+    /* separator: h-[2px] */
+    .sep-line { height: 1px; background: var(--panel-border); width: 100%; flex-shrink: 0; }
+
+    /* customizations header: h-[30px], font Medium 12px */
+    .customizations-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 30px;
+      width: 100%;
+      flex-shrink: 0;
+    }
+    .customizations-label { font-size: 12px; font-weight: 500; color: var(--foreground); white-space: nowrap; }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       CHAT AREA
+    ═══════════════════════════════════════════════════════════════════════ */
+    .chat-area {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    /* Top bar: h-[35px] */
+    .top-bar {
+      display: flex;
+      align-items: center;
+      height: 35px;
+      flex-shrink: 0;
+      width: 100%;
+    }
+
+    .command-center {
+      display: flex;
+      align-items: center;
+      gap: var(--s6);
+      flex: 1;
+      min-width: 0;
+      padding: 0 var(--s4);
+      border-radius: var(--r-inner);
+      overflow: hidden;
+    }
+
+    /* font: SF Pro Text Regular 13px, color foreground */
+    .command-title { font-size: 13px; font-weight: 400; color: var(--foreground); white-space: nowrap; flex-shrink: 0; }
+    /* font: SF Pro Text Regular 13px, color desc-fg */
+    .command-sub   { font-size: 13px; font-weight: 400; color: var(--desc-fg);   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .titlebar-right {
+      display: flex;
+      align-items: center;
+      gap: var(--s4);
+      height: 35px;
+      flex-shrink: 0;
+      background: var(--agents-bg);
+    }
+
+    .session-actions { display: flex; align-items: center; gap: var(--s4); height: 35px; overflow: hidden; }
+
+    .titlebar-sep      { display: flex; align-items: center; justify-content: center; height: 22px; opacity: 0.5; padding: 0 var(--s4); }
+    .titlebar-sep-line { width: 1px; height: 22px; background: var(--desc-fg); opacity: 0.5; }
+
+    /* Body: gap-[16px] */
+    .body {
+      display: flex;
+      gap: var(--s16);
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    /* ── Chat panel ─────────────────────────────────────────────────────────
+       bg white, border #e4e5e6, rounded-[8px], gap 16, pb 8, pt 16, px 40  */
+    .chat-panel {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: var(--s16);
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: var(--r-panel);
+      overflow: hidden;
+      padding: var(--s16) var(--s40) var(--s8);
+      align-items: center;
+      justify-content: flex-end;
+    }
+
+    /* max-w-[760px], gap-[12px] */
+    .message-stream {
+      display: flex;
+      flex-direction: column;
+      gap: var(--s12);
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      width: 100%;
+      max-width: 760px;
+      justify-content: flex-end;
+      scroll-snap-type: none;
+    }
+
+    /* Chat Message Body: py-[4px] */
+    .msg-body { display: flex; align-items: flex-start; padding: var(--s4) 0; width: 100%; }
+    .msg-body p { font-size: 13px; font-weight: 400; line-height: 1.4; color: var(--foreground); flex: 1; min-width: 0; word-break: break-word; }
+
+    /* Chat Status Row: max-w-[560px], py-[2px], gap-[6px] */
+    .msg-status {
+      display: flex;
+      gap: var(--s6);
+      align-items: baseline;
+      font-size: 13px;
+      line-height: 1;
+      padding: var(--s2) 0;
+      white-space: nowrap;
+      overflow: hidden;
+      width: 100%;
+      max-width: 560px;
+    }
+    .msg-status .label { font-weight: 600; color: var(--foreground); flex-shrink: 0; } /* Semibold */
+    .msg-status .desc  { font-weight: 400; color: var(--desc-fg);    flex-shrink: 0; }
+
+    /* Chat Tool Use: max-w-[560px], py-[2px] */
+    .msg-tool { display: flex; align-items: flex-start; padding: var(--s2) 0; width: 100%; max-width: 560px; overflow: hidden; }
+    .msg-tool p { font-size: 13px; font-weight: 400; line-height: 1; color: var(--desc-fg); white-space: nowrap; flex-shrink: 0; }
+
+    /* Chat List Item: pl-[12px], py-[2px], gap-[8px] */
+    .msg-list-item {
+      display: flex;
+      gap: var(--s8);
+      align-items: flex-start;
+      font-size: 13px;
+      font-weight: 400;
+      line-height: 1.4;
+      color: var(--foreground);
+      padding: var(--s2) 0 var(--s2) var(--s12);
+      width: 100%;
+      overflow: hidden;
+    }
+    .msg-list-item .num { flex-shrink: 0; white-space: nowrap; }
+    .msg-list-item .txt { flex: 1; min-width: 0; }
+
+    .msg-meta { display: flex; align-items: center; overflow: hidden; width: 100%; }
+
+    /* Chat input: bg #f7f7fa, border #e4e5e6, rounded-[6px], gap-[24px], p-[16px] */
+    .chat-input-wrap { display: flex; flex-direction: column; align-items: flex-start; max-width: 760px; width: 100%; flex-shrink: 0; gap: 0; }
+
+    .chat-input-creature {
+      display: flex;
+      justify-content: flex-end;
+      width: 100%;
+      pointer-events: none;
+      margin-bottom: 0;
+      line-height: 0;
+    }
+
+    .chat-input {
+      background: var(--chat-input-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: var(--r-inner);
+      display: flex;
+      flex-direction: column;
+      gap: var(--s24);
+      padding: var(--s16);
+      width: 100%;
+      overflow: hidden;
+    }
+
+    .chat-input-placeholder { font-size: 13px; font-weight: 400; color: var(--desc-fg); width: 100%; }
+
+    .input-bottom { display: flex; gap: var(--s8); align-items: center; width: 100%; overflow: hidden; }
+    .add-wrap     { display: flex; align-items: center; justify-content: center; padding: var(--s2); border-radius: var(--r-small); flex-shrink: 0; }
+    .send-wrap    { display: flex; align-items: center; justify-content: space-between; flex: 1; min-width: 0; padding: var(--s2); border-radius: var(--r-small); }
+
+    .model-label  { font-size: 13px; font-weight: 400; color: var(--desc-fg); white-space: nowrap; }
+
+    /* action-row: h-[28px], py-[4px], gap-[8px] */
+    .action-row { display: flex; gap: var(--s8); height: 28px; align-items: center; padding: var(--s4) 0; overflow: hidden; width: 100%; }
+    .action-pill { display: flex; gap: var(--s4); align-items: center; padding: var(--s2) var(--s4); border-radius: var(--r-small); flex-shrink: 0; }
+    .action-pill span { font-size: 13px; font-weight: 400; color: var(--desc-fg); white-space: nowrap; }
+
+    /* ── Aux panel ──────────────────────────────────────────────────────────
+       w-[335px], bg white, border #e4e5e6, rounded-[8px]                   */
+    .aux-panel {
+      width: 335px;
+      flex-shrink: 0;
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: var(--r-panel);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* pt-[16px] px-[16px], gap-[4px] */
+    .aux-title { display: flex; align-items: center; gap: var(--s4); padding: var(--s16) var(--s16) 0; flex-shrink: 0; width: 100%; }
+
+    /* Tab active: bg rgba(191,191,191,0.05), font Medium 12px, color #202020
+       Tab inactive: font Medium 12px, color #606060
+       h-[22px], px-[8px] py-[2px], rounded-[4px] */
+    .tab { display: flex; align-items: center; justify-content: center; height: 22px; padding: var(--s2) var(--s8); border-radius: var(--r-small); font-size: 12px; font-weight: 500; cursor: pointer; flex-shrink: 0; }
+    .tab.active   { background: rgba(191,191,191,0.05); color: var(--foreground); }
+    .tab.inactive { color: var(--desc-fg); }
+    .aux-title .spacer { flex: 1; min-width: 0; }
+    .more-btn { font-size: 13px; font-weight: 400; color: var(--desc-fg); flex-shrink: 0; }
+
+    /* p-[16px], gap-[4px] */
+    .aux-body { display: flex; flex-direction: column; gap: var(--s4); flex: 1; min-height: 0; overflow: hidden; padding: var(--s16); width: 100%; }
+
+    /* merge-row: gap-[4px], pb-[8px] */
+    .merge-row { display: flex; gap: var(--s4); align-items: center; padding-bottom: var(--s8); flex-shrink: 0; width: 100%; }
+
+    /* Merge Changes button: bg #0069cc, h-[26px], rounded-[4px], gap-[2px] */
+    .merge-btn { display: flex; align-items: center; gap: var(--s2); flex: 1; height: 26px; border-radius: var(--r-small); background: var(--btn-bg); overflow: hidden; min-width: 0; cursor: pointer; }
+    .merge-btn-main { display: flex; flex: 1; gap: var(--s6); align-items: center; justify-content: center; min-width: 0; }
+    .merge-btn-label { font-size: 13px; font-weight: 400; color: var(--btn-fg); white-space: nowrap; }
+    .merge-btn-sep { display: flex; align-items: center; justify-content: center; height: 100%; padding: var(--s6) 0; }
+    .merge-btn-sep-line { width: 1px; height: 100%; background: var(--btn-fg); }
+    .merge-btn-chevron { display: flex; align-items: center; justify-content: center; width: 16px; height: 16px; flex-shrink: 0; }
+
+    /* comment/code-review btn: bg #eaeaea, border #eeeef1, 26×26, rounded-[4px] */
+    .comment-btn { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: var(--r-small); background: var(--btn-sec-bg); border: 1px solid var(--btn-sec-border); flex-shrink: 0; cursor: pointer; }
+
+    /* Branch Changes section */
+    .branch-changes-section { display: flex; flex-direction: column; gap: var(--s4); padding: 0 var(--s4); flex-shrink: 0; width: 100%; }
+    .branch-changes-header  { display: flex; align-items: center; gap: var(--s4); height: 14px; width: 100%; overflow: hidden; }
+    /* font: SF Pro Text Bold 11px, color #202020 */
+    .branch-changes-label { font-size: 11px; font-weight: 700; color: var(--foreground); white-space: nowrap; flex-shrink: 0; }
+  </style>
+</head>
+<body>
+
+<div class="root">
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+       SIDEBAR
+  ════════════════════════════════════════════════════════════════════════ -->
+  <div class="sidebar">
+
+    <!-- Titlebar left -->
+    <div class="titlebar-left">
+      <div class="window-controls">
+        <div class="dot close"></div>
+        <div class="dot min"></div>
+        <div class="dot max"></div>
+      </div>
+      <div class="left-toolbar">
+        <!-- layout-sidebar-left -->
+        <div class="toolbar-btn">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M2 5.5C2 4.11929 3.11929 3 4.5 3H11.5C12.8807 3 14 4.11929 14 5.5V10.5C14 11.8807 12.8807 13 11.5 13H4.5C3.11929 13 2 11.8807 2 10.5V5.5ZM7 4V12H11.5C12.3284 12 13 11.3284 13 10.5V5.5C13 4.67157 12.3284 4 11.5 4H7ZM6 4H4.5C3.67157 4 3 4.67157 3 5.5V10.5C3 11.3284 3.67157 12 4.5 12H6V4Z" fill="#606060"/>
+          </svg>
+        </div>
+        <!-- arrow-left (opacity-40) -->
+        <div class="toolbar-btn faded">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M13.5 8.5C13.7761 8.5 14 8.27614 14 8C14 7.72386 13.7761 7.5 13.5 7.5L3.80298 7.5L7.83448 3.87165C8.03974 3.68692 8.05638 3.37078 7.87165 3.16552C7.68692 2.96027 7.37077 2.94363 7.16552 3.12836L2.16552 7.62835C2.06016 7.72317 2 7.85826 2 8C2 8.14174 2.06016 8.27683 2.16552 8.37165L7.16552 12.8716C7.37077 13.0564 7.68692 13.0397 7.87165 12.8345C8.05638 12.6292 8.03974 12.3131 7.83448 12.1283L3.80298 8.5L13.5 8.5Z" fill="#606060"/>
+          </svg>
+        </div>
+        <!-- arrow-right (opacity-40) -->
+        <div class="toolbar-btn faded">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M2.5 7.50001C2.22386 7.50001 2 7.72386 2 8.00001C2 8.27615 2.22386 8.50001 2.5 8.50001L12.197 8.5L8.16552 12.1284C7.96026 12.3131 7.94362 12.6292 8.12835 12.8345C8.31308 13.0397 8.62923 13.0564 8.83448 12.8717L13.8345 8.37165C13.9398 8.27683 14 8.14175 14 8C14 7.85826 13.9398 7.72318 13.8345 7.62836L8.83448 3.12836C8.62923 2.94363 8.31308 2.96027 8.12835 3.16552C7.94362 3.37078 7.96026 3.68692 8.16552 3.87165L12.197 7.5L2.5 7.50001Z" fill="#606060"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sessions header -->
+    <div class="sessions-header">
+      <span class="sessions-title">Sessions</span>
+      <div class="header-actions">
+        <button class="new-btn">
+          <span class="new-btn-label">New</span>
+          <span class="new-btn-kbd"><span>⌘</span><span>N</span></span>
+        </button>
+        <!-- settings icon: p-[4px] -->
+        <div class="icon-btn">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M7.99994 6C6.89537 6 5.99994 6.89543 5.99994 8C5.99994 9.10457 6.89537 10 7.99994 10C9.10451 10 9.99994 9.10457 9.99994 8C9.99994 6.89543 9.10451 6 7.99994 6ZM6.99994 8C6.99994 7.44772 7.44765 7 7.99994 7C8.55222 7 8.99994 7.44772 8.99994 8C8.99994 8.55228 8.55222 9 7.99994 9C7.44765 9 6.99994 8.55228 6.99994 8ZM10.618 4.39833C10.233 4.46825 9.86392 4.21413 9.7937 3.83074L9.53397 2.41496C9.50816 2.27427 9.39961 2.16301 9.25912 2.13325C8.84818 2.04621 8.42685 2.00195 8 2.00195C7.57289 2.00195 7.1513 2.04627 6.74013 2.13341C6.5996 2.1632 6.49104 2.27452 6.46529 2.41527L6.20629 3.8308C6.1994 3.86844 6.18942 3.90551 6.17647 3.9416C6.04476 4.30859 5.6392 4.49978 5.27062 4.36863L3.91115 3.88463C3.77603 3.83652 3.62511 3.87431 3.52891 3.98033C2.96005 4.60729 2.52892 5.34708 2.2672 6.15302C2.22305 6.28899 2.26562 6.43805 2.37502 6.53053L3.47694 7.46206C3.50626 7.48685 3.53352 7.51399 3.55843 7.5432C3.81177 7.84027 3.77528 8.28558 3.47693 8.53783L2.37502 9.46935C2.26562 9.56183 2.22305 9.71089 2.2672 9.84685C2.52892 10.6528 2.96005 11.3926 3.52891 12.0196C3.62511 12.1256 3.77603 12.1634 3.91115 12.1153L5.27068 11.6312C5.30687 11.6184 5.3441 11.6084 5.38196 11.6015C5.76701 11.5316 6.13608 11.7857 6.2063 12.1691L6.46529 13.5846C6.49104 13.7254 6.5996 13.8367 6.74013 13.8665C7.1513 13.9536 7.57289 13.9979 8 13.9979C8.42685 13.9979 8.84818 13.9537 9.25912 13.8666C9.39961 13.8369 9.50816 13.7256 9.53397 13.5849L9.79368 12.1692C9.8006 12.1314 9.81058 12.0944 9.82353 12.0583C9.95524 11.6913 10.3608 11.5001 10.7294 11.6312L12.0888 12.1153C12.224 12.1634 12.3749 12.1256 12.4711 12.0196C13.04 11.3926 13.4711 10.6528 13.7328 9.84685C13.777 9.71089 13.7344 9.56183 13.625 9.46935L12.5231 8.53782C12.4937 8.51303 12.4665 8.48589 12.4416 8.45667C12.1882 8.1596 12.2247 7.71429 12.5231 7.46205L13.625 6.53053C13.7344 6.43805 13.777 6.28899 13.7328 6.15302C13.4711 5.34708 13.04 4.60729 12.4711 3.98033C12.3749 3.87431 12.224 3.83652 12.0888 3.88463L10.7293 4.36865C10.6931 4.38152 10.6559 4.39146 10.618 4.39833ZM3.99863 4.97726L4.93522 5.3107C5.82017 5.62559 6.79872 5.16815 7.11769 4.2794C7.14903 4.19207 7.17324 4.1021 7.18996 4.01078L7.36738 3.04113C7.5757 3.01512 7.78684 3.00195 8 3.00195C8.213 3.00195 8.42397 3.0151 8.63214 3.04107L8.81011 4.01117C8.98053 4.9408 9.87266 5.55003 10.7967 5.38225C10.8877 5.36572 10.9775 5.34176 11.0647 5.31073L12.0014 4.97726C12.2564 5.31084 12.4684 5.67476 12.6319 6.06064L11.8774 6.6984C11.1566 7.30787 11.0675 8.38649 11.6807 9.10555C11.7408 9.17609 11.8067 9.24166 11.8775 9.3015L12.6319 9.93924C12.4684 10.3251 12.2564 10.689 12.0014 11.0226L11.0646 10.6891C10.1797 10.3742 9.20128 10.8317 8.88231 11.7205C8.85096 11.8078 8.82677 11.8978 8.81004 11.9891L8.63214 12.9588C8.42397 12.9848 8.213 12.9979 8 12.9979C7.78684 12.9979 7.5757 12.9848 7.36738 12.9587L7.18994 11.989C7.01965 11.0592 6.12743 10.4498 5.2033 10.6176C5.11227 10.6342 5.0225 10.6581 4.93528 10.6892L3.99863 11.0226C3.74357 10.689 3.53161 10.3251 3.36814 9.93924L4.12257 9.30148C4.84343 8.69201 4.93254 7.61339 4.31933 6.89433C4.25917 6.82378 4.19332 6.75822 4.12254 6.69838L3.36814 6.06064C3.53161 5.67476 3.74357 5.31084 3.99863 4.97726Z" fill="#606060"/>
+          </svg>
+        </div>
+        <!-- search icon: p-[4px] -->
+        <div class="icon-btn">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M11.0195 11.7266C10.0658 12.5217 8.83875 13 7.5 13C4.46243 13 2 10.5376 2 7.5C2 4.46243 4.46243 2 7.5 2C10.5376 2 13 4.46243 13 7.5C13 8.83875 12.5217 10.0658 11.7266 11.0195L14.8535 14.1464C15.0488 14.3417 15.0488 14.6583 14.8535 14.8536C14.6583 15.0488 14.3417 15.0488 14.1464 14.8536L11.0195 11.7266ZM12 7.5C12 5.01472 9.98528 3 7.5 3C5.01472 3 3 5.01472 3 7.5C3 9.98528 5.01472 12 7.5 12C9.98528 12 12 9.98528 12 7.5Z" fill="#606060"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section header: Joanna-Notes, h-[22px], font Medium 12px #8c8c8c -->
+    <div class="section-header">
+      <span class="section-label">Joanna-Notes</span>
+    </div>
+
+    <!-- Session 1: "Session title" – small filled dot (circle-small-filled) -->
+    <div class="session-item">
+      <div class="session-icon">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="#606060">
+          <circle cx="8" cy="8" r="2.5"/>
+        </svg>
+      </div>
+      <div class="session-main">
+        <div class="session-title-row">
+          <span class="session-title">Session title</span>
+        </div>
+        <div class="session-details-row">
+          <!-- folder icon 12×12 -->
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="#606060" style="flex-shrink:0">
+            <path d="M2 4.5V6H5.58579C5.71839 6 5.84557 5.94732 5.93934 5.85355L7.29289 4.5L5.93934 3.14645C5.84557 3.05268 5.71839 3 5.58579 3H3.5C2.67157 3 2 3.67157 2 4.5ZM1 4.5C1 3.11929 2.11929 2 3.5 2H5.58579C5.98361 2 6.36514 2.15804 6.64645 2.43934L8.20711 4H12.5C13.8807 4 15 5.11929 15 6.5V11.5C15 12.8807 13.8807 14 12.5 14H3.5C2.11929 14 1 12.8807 1 11.5V4.5ZM2 7V11.5C2 12.3284 2.67157 13 3.5 13H12.5C13.3284 13 14 12.3284 14 11.5V6.5C14 5.67157 13.3284 5 12.5 5H8.20711L6.64645 6.56066C6.36514 6.84197 5.98361 7 5.58579 7H2Z"/>
+          </svg>
+          <span class="detail-text">·</span>
+          <span class="detail-text">2 days ago</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Session 2: "Investigate flaky test…" – circle-filled (larger dot) + diff -->
+    <div class="session-item">
+      <div class="session-icon">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="#606060" style="margin-top:2px">
+          <circle cx="6" cy="6" r="4"/>
+        </svg>
+      </div>
+      <div class="session-main">
+        <div class="session-title-row">
+          <span class="session-title">Investigate flaky test in chat input ren…</span>
+        </div>
+        <div class="session-details-row">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="#606060" style="flex-shrink:0">
+            <path d="M2 4.5V6H5.58579C5.71839 6 5.84557 5.94732 5.93934 5.85355L7.29289 4.5L5.93934 3.14645C5.84557 3.05268 5.71839 3 5.58579 3H3.5C2.67157 3 2 3.67157 2 4.5ZM1 4.5C1 3.11929 2.11929 2 3.5 2H5.58579C5.98361 2 6.36514 2.15804 6.64645 2.43934L8.20711 4H12.5C13.8807 4 15 5.11929 15 6.5V11.5C15 12.8807 13.8807 14 12.5 14H3.5C2.11929 14 1 12.8807 1 11.5V4.5ZM2 7V11.5C2 12.3284 2.67157 13 3.5 13H12.5C13.3284 13 14 12.3284 14 11.5V6.5C14 5.67157 13.3284 5 12.5 5H8.20711L6.64645 6.56066C6.36514 6.84197 5.98361 7 5.58579 7H2Z"/>
+          </svg>
+          <span class="detail-text">·</span>
+          <div class="diff-group">
+            <span class="diff-added">+12</span>
+            <span class="diff-removed">−3</span>
+          </div>
+          <span class="detail-text">·</span>
+          <span class="detail-text">2 days ago</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Session 3: "Session title" – loading spinner, Working… -->
+    <div class="session-item">
+      <div class="session-icon">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M3 8C3 5.23858 5.23858 3 8 3C9.63527 3 11.0878 3.78495 12.0005 5H10C9.72386 5 9.5 5.22386 9.5 5.5C9.5 5.77614 9.72386 6 10 6H12.8904C12.8973 6.00014 12.9041 6.00014 12.911 6H13C13.2761 6 13.5 5.77614 13.5 5.5V2.5C13.5 2.22386 13.2761 2 13 2C12.7239 2 12.5 2.22386 12.5 2.5V4.03138C11.4009 2.78613 9.79253 2 8 2C4.68629 2 2 4.68629 2 8C2 11.3137 4.68629 14 8 14C11.1301 14 13.6999 11.6035 13.9756 8.54488C14.0003 8.26985 13.7975 8.0268 13.5225 8.00202C13.2474 7.97723 13.0044 8.1801 12.9796 8.45512C12.75 11.003 10.6079 13 8 13C5.23858 13 3 10.7614 3 8Z" fill="#606060"/>
+        </svg>
+      </div>
+      <div class="session-main">
+        <div class="session-title-row">
+          <span class="session-title">Session title</span>
+        </div>
+        <div class="session-details-row">
+          <span class="detail-text" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">Working…</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Session 4: "Investigate flaky test…" – SELECTED, small dot -->
+    <div class="session-item selected">
+      <div class="session-icon">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="#606060">
+          <circle cx="8" cy="8" r="2.5"/>
+        </svg>
+      </div>
+      <div class="session-main">
+        <div class="session-title-row">
+          <span class="session-title">Investigate flaky test in chat input ren…</span>
+        </div>
+        <div class="session-details-row">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="#606060" style="flex-shrink:0">
+            <path d="M2 4.5V6H5.58579C5.71839 6 5.84557 5.94732 5.93934 5.85355L7.29289 4.5L5.93934 3.14645C5.84557 3.05268 5.71839 3 5.58579 3H3.5C2.67157 3 2 3.67157 2 4.5ZM1 4.5C1 3.11929 2.11929 2 3.5 2H5.58579C5.98361 2 6.36514 2.15804 6.64645 2.43934L8.20711 4H12.5C13.8807 4 15 5.11929 15 6.5V11.5C15 12.8807 13.8807 14 12.5 14H3.5C2.11929 14 1 12.8807 1 11.5V4.5ZM2 7V11.5C2 12.3284 2.67157 13 3.5 13H12.5C13.3284 13 14 12.3284 14 11.5V6.5C14 5.67157 13.3284 5 12.5 5H8.20711L6.64645 6.56066C6.36514 6.84197 5.98361 7 5.58579 7H2Z"/>
+          </svg>
+          <span class="detail-text">·</span>
+          <span class="detail-text">2 days ago</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Customizations footer: separator + header row -->
+    <div class="customizations">
+      <div class="sep-line"></div>
+      <div class="customizations-header">
+        <span class="customizations-label">Customizations</span>
+        <!-- chevron-right 16×16 -->
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M5.64645 3.14645C5.45118 3.34171 5.45118 3.65829 5.64645 3.85355L9.79289 8L5.64645 12.1464C5.45118 12.3417 5.45118 12.6583 5.64645 12.8536C5.84171 13.0488 6.15829 13.0488 6.35355 12.8536L10.8536 8.35355C11.0488 8.15829 11.0488 7.84171 10.8536 7.64645L6.35355 3.14645C6.15829 2.95118 5.84171 2.95118 5.64645 3.14645Z" fill="#606060"/>
+        </svg>
+      </div>
+    </div>
+
+  </div><!-- /sidebar -->
+
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+       CHAT AREA
+  ════════════════════════════════════════════════════════════════════════ -->
+  <div class="chat-area">
+
+    <!-- Top bar: command-center + titlebar-right -->
+    <div class="top-bar">
+      <div class="command-center">
+        <!-- copilot icon 16×16 -->
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex-shrink:0">
+          <path d="M5.46524 9.82913C5.62134 9.93988 5.80806 9.99926 5.99946 9.99899C6.19151 9.99979 6.37897 9.94033 6.53546 9.82899C6.69223 9.71329 6.81095 9.55349 6.87646 9.36999L7.22346 8.30299C7.3077 8.05142 7.44906 7.82278 7.63646 7.63499C7.82305 7.44802 8.05078 7.30727 8.30146 7.22399L9.38746 6.87099C9.56665 6.8071 9.72173 6.6894 9.83146 6.53399C9.94145 6.37859 10.0005 6.19288 10.0005 6.00249C10.0005 5.8121 9.94145 5.6264 9.83146 5.47099C9.71293 5.30564 9.54426 5.1829 9.35046 5.12099L8.28146 4.77499C8.02989 4.69189 7.80123 4.55114 7.61371 4.36398C7.4262 4.17681 7.28503 3.94841 7.20146 3.69699L6.84846 2.61299C6.78519 2.43375 6.66777 2.27859 6.51246 2.16899C6.35557 2.06084 6.16951 2.00293 5.97896 2.00293C5.78841 2.00293 5.60235 2.06084 5.44546 2.16899C5.28572 2.28147 5.16594 2.44189 5.10346 2.62699L4.74846 3.71699C4.66476 3.96106 4.52691 4.18302 4.34524 4.36625C4.16358 4.54947 3.9428 4.68921 3.69946 4.77499L2.61546 5.12599C2.43437 5.18999 2.27775 5.30889 2.16743 5.46611C2.05712 5.62334 1.99859 5.81106 2.00003 6.00313C2.00146 6.19519 2.06277 6.38202 2.17541 6.53759C2.28806 6.69315 2.44643 6.8097 2.62846 6.87099L3.69546 7.21799C3.94767 7.30248 4.17673 7.44457 4.36446 7.63299C4.41519 7.68321 4.46262 7.73666 4.50646 7.79299C4.62481 7.94566 4.71614 8.11748 4.77646 8.30099L5.12846 9.38099C5.19143 9.56174 5.30914 9.71837 5.46524 9.82913ZM4.00746 6.26399L3.15246 5.99899L4.01646 5.71799C4.41071 5.58136 4.76826 5.35588 5.06146 5.05899C5.35281 4.75991 5.57294 4.39895 5.70546 4.00299L5.97046 3.14399L6.25046 4.00599C6.38349 4.4059 6.60809 4.7692 6.90636 5.06695C7.20463 5.3647 7.56833 5.58866 7.96846 5.72099L8.84846 5.98999L7.98746 6.26999C7.58707 6.40224 7.22321 6.62642 6.92505 6.92458C6.62689 7.22275 6.4027 7.5866 6.27046 7.98699L6.00546 8.84399L5.72646 7.98499C5.63026 7.6928 5.48483 7.41919 5.29646 7.17599C5.22699 7.08717 5.15254 7.00237 5.07346 6.92199C4.7738 6.62317 4.4089 6.39793 4.00746 6.26399ZM10.5344 13.851C10.6703 13.9472 10.8328 13.9989 10.9994 13.999C11.1642 13.9975 11.3245 13.9451 11.4584 13.849C11.5979 13.7505 11.7029 13.6105 11.7584 13.449L12.0064 12.687C12.0595 12.5286 12.1485 12.3845 12.2664 12.266C12.3837 12.1475 12.5277 12.0587 12.6864 12.007L13.4584 11.755C13.6161 11.7005 13.7528 11.598 13.8494 11.462C13.9227 11.359 13.9706 11.2401 13.9891 11.115C14.0076 10.9899 13.9962 10.8622 13.9558 10.7423C13.9154 10.6225 13.8472 10.5139 13.7567 10.4256C13.6662 10.3372 13.5561 10.2716 13.4354 10.234L12.6714 9.985C12.5132 9.93243 12.3695 9.84381 12.2514 9.72614C12.1334 9.60848 12.0444 9.46498 11.9914 9.307L11.7394 8.533C11.685 8.37574 11.5825 8.23962 11.4464 8.144C11.3443 8.07105 11.2266 8.0231 11.1026 8.00404C10.9787 7.98498 10.8519 7.99534 10.7327 8.03427C10.6135 8.0732 10.5051 8.13962 10.4163 8.22816C10.3274 8.31671 10.2607 8.42489 10.2214 8.544L9.97435 9.306C9.92207 9.46364 9.83452 9.60729 9.71835 9.726C9.60382 9.84223 9.46428 9.93081 9.31035 9.985L8.53435 10.238C8.41689 10.2788 8.31057 10.3465 8.22382 10.4356C8.13708 10.5247 8.0723 10.6328 8.03464 10.7513C7.99698 10.8699 7.98746 10.9955 8.00686 11.1184C8.02625 11.2412 8.07401 11.3578 8.14635 11.459C8.24456 11.5988 8.38462 11.7039 8.54635 11.759L9.30935 12.006C9.46821 12.0594 9.61262 12.1487 9.73135 12.267C9.84958 12.3852 9.93801 12.5299 9.98935 12.689L10.2424 13.463C10.2971 13.6195 10.3992 13.755 10.5344 13.851ZM9.62035 11.058L9.44235 10.999L9.62635 10.935C9.92811 10.83 10.2018 10.6573 10.4264 10.43C10.6528 10.201 10.8238 9.92326 10.9264 9.618L10.9844 9.44L11.0434 9.621C11.1453 9.9277 11.3175 10.2064 11.5461 10.4348C11.7748 10.6633 12.0536 10.8352 12.3604 10.937L12.5554 11L12.3754 11.059C12.068 11.1612 11.7888 11.3339 11.5601 11.5632C11.3314 11.7926 11.1596 12.0723 11.0584 12.38L10.9994 12.561L10.9414 12.38C10.84 12.0716 10.6676 11.7914 10.4382 11.5618C10.2088 11.3322 9.92863 11.1596 9.62035 11.058Z" fill="#606060"/>
+        </svg>
+        <span class="command-title">Investigate flaky test in chat input rendering</span>
+        <span class="command-sub">Joanna-Notes/agents/auto-update-codicon</span>
+      </div>
+
+      <div class="titlebar-right">
+        <div class="session-actions">
+          <!-- separator -->
+          <div class="titlebar-sep"><div class="titlebar-sep-line"></div></div>
+          <!-- run (triangle) -->
+          <div class="toolbar-btn">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M5.74514 3.06445C5.41183 2.87696 5 3.11781 5 3.50023V12.5005C5 12.8829 5.41182 13.1238 5.74512 12.9363L13.7454 8.43631C14.0852 8.24517 14.0852 7.75589 13.7454 7.56474L5.74514 3.06445ZM4 3.50023C4 2.35298 5.2355 1.63041 6.23541 2.19288L14.2357 6.69317C15.2551 7.26664 15.2551 8.73446 14.2356 9.3079L6.23537 13.8079C5.23546 14.3703 4 13.6477 4 12.5005V3.50023Z" fill="#606060"/>
+            </svg>
+          </div>
+          <!-- terminal -->
+          <div class="toolbar-btn">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+              <path d="M5.64645 9.14645C5.84171 8.95118 6.15829 8.95118 6.35355 9.14645L8.35355 11.1464C8.44732 11.2402 8.5 11.3674 8.5 11.5C8.5 11.6326 8.44732 11.7598 8.35355 11.8536L6.35355 13.8536C6.15829 14.0488 5.84171 14.0488 5.64645 13.8536C5.45118 13.6583 5.45118 13.3417 5.64645 13.1464L7.29289 11.5L5.64645 9.85355C5.45118 9.65829 5.45118 9.34171 5.64645 9.14645ZM14.5 13H9.5C9.22386 13 9 13.2239 9 13.5C9 13.7761 9.22386 14 9.5 14H14.5C14.7761 14 15 13.7761 15 13.5C15 13.2239 14.7761 13 14.5 13ZM2.99609 5.5C2.99609 4.11929 4.11538 3 5.49609 3H14.4961C15.8768 3 16.9961 4.11929 16.9961 5.5V6H16.999V7H16.9961V14.5C16.9961 15.8807 15.8768 17 14.4961 17H5.49609C4.11538 17 2.99609 15.8807 2.99609 14.5V5.5ZM15.9961 6V5.5C15.9961 4.67157 15.3245 4 14.4961 4H5.49609C4.66767 4 3.99609 4.67157 3.99609 5.5V6H15.9961ZM3.99609 7V14.5C3.99609 15.3284 4.66767 16 5.49609 16H14.4961C15.3245 16 15.9961 15.3284 15.9961 14.5V7H3.99609Z" fill="#606060"/>
+            </svg>
+          </div>
+          <!-- layout-sidebar-right -->
+          <div class="toolbar-btn">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M14 5.5C14 4.11929 12.8807 3 11.5 3H4.5C3.11929 3 2 4.11929 2 5.5V10.5C2 11.8807 3.11929 13 4.5 13H11.5C12.8807 13 14 11.8807 14 10.5V5.5ZM9 4V12H4.5C3.67157 12 3 11.3284 3 10.5V5.5C3 4.67157 3.67157 4 4.5 4H9ZM10 4H11.5C12.3284 4 13 4.67157 13 5.5V10.5C13 11.3284 12.3284 12 11.5 12H10V4Z" fill="#606060"/>
+            </svg>
+          </div>
+        </div>
+        <!-- account -->
+        <div style="display:flex;align-items:center;height:35px">
+          <div class="toolbar-btn">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M11.5 8C12.3284 8 13 8.67157 13 9.5V10C13 11.9714 11.1405 14 8 14C4.85951 14 3 11.9714 3 10V9.5C3 8.67157 3.67157 8 4.5 8H11.5ZM11.5 9H4.5C4.22386 9 4 9.22386 4 9.5V10C4 11.4376 5.43216 13 8 13C10.5678 13 12 11.4376 12 10V9.5C12 9.22386 11.7761 9 11.5 9ZM8 1.5C9.51878 1.5 10.75 2.73122 10.75 4.25C10.75 5.76878 9.51878 7 8 7C6.48122 7 5.25 5.76878 5.25 4.25C5.25 2.73122 6.48122 1.5 8 1.5ZM8 2.5C7.0335 2.5 6.25 3.2835 6.25 4.25C6.25 5.2165 7.0335 6 8 6C8.9665 6 9.75 5.2165 9.75 4.25C9.75 3.2835 8.9665 2.5 8 2.5Z" fill="#606060"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Body: chat-panel + aux-panel -->
+    <div class="body">
+
+      <!-- Chat panel -->
+      <div class="chat-panel">
+        <div class="message-stream">
+
+          <!-- message -->
+          <div class="msg-body">
+            <p>I'm fetching the active PR and its unresolved review threads first, then I'll inspect the referenced files and apply the reviewer's requested changes.</p>
+          </div>
+
+          <!-- status row -->
+          <div class="msg-status">
+            <span class="label">Tracked</span>
+            <span class="desc">PR comment fixes and confirmed branch and sha</span>
+          </div>
+
+          <!-- tool use rows -->
+          <div class="msg-tool"><p>Used tool: GitHub, search_pull_requests (MCP Server)</p></div>
+
+          <div class="msg-body">
+            <p>I didn't get a hit from search, so I'm using the PR we just opened directly and pulling its review threads/files now.</p>
+          </div>
+
+          <div class="msg-tool"><p>Used tool: GitHub, pull_request_read (MCP Server)</p></div>
+          <div class="msg-tool"><p>Used tool: GitHub, pull_request_read (MCP Server)</p></div>
+          <div class="msg-tool"><p>Used tool: GitHub, pull_request_read (MCP Server)</p></div>
+          <div class="msg-tool"><p>Used tool: GitHub, pull_request_read (MCP Server)</p></div>
+
+          <div class="msg-body">
+            <p>I found two unresolved comments: one asks to update the transition section comment in style.css, and the other asks to consolidate the duplicate 2026-03-26 revision-history entries in LAYOUT.md. I'm patching both now.</p>
+          </div>
+
+          <div class="msg-status">
+            <span class="label">Reviewed</span>
+            <span class="desc">LAYOUT.md and style.css files</span>
+          </div>
+
+          <div class="msg-body">
+            <p>I applied both requested doc fixes. I'm validating the touched files, then I'll push the branch and give you a short mapping from comment to fix.</p>
+          </div>
+
+          <div class="msg-status">
+            <span class="label">Updated</span>
+            <span class="desc">PR comment and inspected fixes</span>
+          </div>
+
+          <div class="msg-body">
+            <p>The feedback is addressed locally and validation passed. I'm committing the two doc/comment fixes and pushing them to the PR branch now.</p>
+          </div>
+
+          <div class="msg-status">
+            <span class="label">Completed</span>
+            <span class="desc">PR review and pushed fixes</span>
+          </div>
+
+          <div class="msg-body"><p>Done — I addressed the unresolved PR comments and pushed the fixes.</p></div>
+          <div class="msg-body"><p>What changed:</p></div>
+
+          <div class="msg-list-item">
+            <span class="num">1.</span>
+            <span class="txt">Updated the style.css section comment to accurately describe the current animation behavior: auxiliary/panel/chat animate their containers, while the sidebar animates only .part.sidebar &gt; .content.</span>
+          </div>
+          <div class="msg-list-item">
+            <span class="num">2.</span>
+            <span class="txt">Consolidated the duplicate 2026-03-26 revision history entries in LAYOUT.md into one final-state entry.</span>
+          </div>
+
+          <div class="msg-body"><p>Validation:</p></div>
+
+          <div class="msg-list-item"><span class="num">•</span><span class="txt">npm run compile-check-ts-native</span></div>
+          <div class="msg-list-item"><span class="num">•</span><span class="txt">hygiene passed via pre-commit on commit</span></div>
+
+          <div class="msg-body"><p>Pushed commit:</p></div>
+          <div class="msg-body"><p>4bbfb5738c1 — sessions: address PR review feedback</p></div>
+          <div class="msg-body"><p>If you want, I can also draft reply text for the PR threads.</p></div>
+
+          <!-- copy icon -->
+          <div class="msg-meta">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+              <path d="M4.00029 4.08525L4 10.5C4 11.8255 5.03154 12.91 6.33562 12.9947L6.5 13L10.9144 13.0007C10.7083 13.5829 10.1528 14 9.5 14H6C4.34315 14 3 12.6569 3 11V5.5C3 4.84678 3.41754 4.29109 4.00029 4.08525ZM11.5 2C12.3284 2 13 2.67157 13 3.5V10.5C13 11.3284 12.3284 12 11.5 12H6.5C5.67157 12 5 11.3284 5 10.5V3.5C5 2.67157 5.67157 2 6.5 2H11.5ZM11.5 3H6.5C6.22386 3 6 3.22386 6 3.5V10.5C6 10.7761 6.22386 11 6.5 11H11.5C11.7761 11 12 10.7761 12 10.5V3.5C12 3.22386 11.7761 3 11.5 3Z" fill="#606060"/>
+            </svg>
+          </div>
+
+        </div><!-- /message-stream -->
+
+        <!-- Chat input -->
+        <div class="chat-input-wrap">
+          <div class="chat-input-creature">
+            <creature-sprite
+              src="./sprite.png"
+              state="idle"
+              frame-width="399"
+              frame-height="417"
+              display-width="24"
+            ></creature-sprite>
+          </div>
+          <div class="chat-input">
+            <p class="chat-input-placeholder">What are you building?</p>
+            <div class="input-bottom">
+              <!-- add icon 12×12 -->
+              <div class="add-wrap">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                  <path d="M8 2C8.27614 2 8.5 2.22386 8.5 2.5V7.5H13.5C13.7761 7.5 14 7.72386 14 8C14 8.27614 13.7761 8.5 13.5 8.5H8.5V13.5C8.5 13.7761 8.27614 14 8 14C7.72386 14 7.5 13.7761 7.5 13.5V8.5H2.5C2.22386 8.5 2 8.27614 2 8C2 7.72386 2.22386 7.5 2.5 7.5H7.5V2.5C7.5 2.22386 7.72386 2 8 2Z" fill="#606060"/>
+                </svg>
+              </div>
+              <div class="send-wrap">
+                <span class="model-label">Claude Sonnet 4.6 · Medium</span>
+                <!-- arrow-up 16×16 -->
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M7.5 13.5C7.5 13.7761 7.72386 14 8 14C8.27614 14 8.5 13.7761 8.5 13.5V3.80298L12.1283 7.83448C12.3131 8.03974 12.6292 8.05638 12.8345 7.87165C13.0397 7.68692 13.0564 7.37077 12.8716 7.16552L8.37165 2.16552C8.27683 2.06016 8.14174 2 8 2C7.85826 2 7.72317 2.06016 7.62835 2.16552L3.12836 7.16552C2.94363 7.37077 2.96027 7.68692 3.16552 7.87165C3.37078 8.05638 3.68692 8.03974 3.87165 7.83448L7.5 3.80298V13.5Z" fill="#606060"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+          <!-- action-row -->
+          <div class="action-row">
+            <!-- copilot CLI pill -->
+            <div class="action-pill">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="flex-shrink:0">
+                <path d="M5.46524 9.82913C5.62134 9.93988 5.80806 9.99926 5.99946 9.99899C6.19151 9.99979 6.37897 9.94033 6.53546 9.82899C6.69223 9.71329 6.81095 9.55349 6.87646 9.36999L7.22346 8.30299C7.3077 8.05142 7.44906 7.82278 7.63646 7.63499C7.82305 7.44802 8.05078 7.30727 8.30146 7.22399L9.38746 6.87099C9.56665 6.8071 9.72173 6.6894 9.83146 6.53399C9.94145 6.37859 10.0005 6.19288 10.0005 6.00249C10.0005 5.8121 9.94145 5.6264 9.83146 5.47099C9.71293 5.30564 9.54426 5.1829 9.35046 5.12099L8.28146 4.77499C8.02989 4.69189 7.80123 4.55114 7.61371 4.36398C7.4262 4.17681 7.28503 3.94841 7.20146 3.69699L6.84846 2.61299C6.78519 2.43375 6.66777 2.27859 6.51246 2.16899C6.35557 2.06084 6.16951 2.00293 5.97896 2.00293C5.78841 2.00293 5.60235 2.06084 5.44546 2.16899C5.28572 2.28147 5.16594 2.44189 5.10346 2.62699L4.74846 3.71699C4.66476 3.96106 4.52691 4.18302 4.34524 4.36625C4.16358 4.54947 3.9428 4.68921 3.69946 4.77499L2.61546 5.12599C2.43437 5.18999 2.27775 5.30889 2.16743 5.46611C2.05712 5.62334 1.99859 5.81106 2.00003 6.00313C2.00146 6.19519 2.06277 6.38202 2.17541 6.53759C2.28806 6.69315 2.44643 6.8097 2.62846 6.87099L3.69546 7.21799C3.94767 7.30248 4.17673 7.44457 4.36446 7.63299C4.41519 7.68321 4.46262 7.73666 4.50646 7.79299C4.62481 7.94566 4.71614 8.11748 4.77646 8.30099L5.12846 9.38099C5.19143 9.56174 5.30914 9.71837 5.46524 9.82913ZM4.00746 6.26399L3.15246 5.99899L4.01646 5.71799C4.41071 5.58136 4.76826 5.35588 5.06146 5.05899C5.35281 4.75991 5.57294 4.39895 5.70546 4.00299L5.97046 3.14399L6.25046 4.00599C6.38349 4.4059 6.60809 4.7692 6.90636 5.06695C7.20463 5.3647 7.56833 5.58866 7.96846 5.72099L8.84846 5.98999L7.98746 6.26999C7.58707 6.40224 7.22321 6.62642 6.92505 6.92458C6.62689 7.22275 6.4027 7.5866 6.27046 7.98699L6.00546 8.84399L5.72646 7.98499C5.63026 7.6928 5.48483 7.41919 5.29646 7.17599C5.22699 7.08717 5.15254 7.00237 5.07346 6.92199C4.7738 6.62317 4.4089 6.39793 4.00746 6.26399ZM10.5344 13.851C10.6703 13.9472 10.8328 13.9989 10.9994 13.999C11.1642 13.9975 11.3245 13.9451 11.4584 13.849C11.5979 13.7505 11.7029 13.6105 11.7584 13.449L12.0064 12.687C12.0595 12.5286 12.1485 12.3845 12.2664 12.266C12.3837 12.1475 12.5277 12.0587 12.6864 12.007L13.4584 11.755C13.6161 11.7005 13.7528 11.598 13.8494 11.462C13.9227 11.359 13.9706 11.2401 13.9891 11.115C14.0076 10.9899 13.9962 10.8622 13.9558 10.7423C13.9154 10.6225 13.8472 10.5139 13.7567 10.4256C13.6662 10.3372 13.5561 10.2716 13.4354 10.234L12.6714 9.985C12.5132 9.93243 12.3695 9.84381 12.2514 9.72614C12.1334 9.60848 12.0444 9.46498 11.9914 9.307L11.7394 8.533C11.685 8.37574 11.5825 8.23962 11.4464 8.144C11.3443 8.07105 11.2266 8.0231 11.1026 8.00404C10.9787 7.98498 10.8519 7.99534 10.7327 8.03427C10.6135 8.0732 10.5051 8.13962 10.4163 8.22816C10.3274 8.31671 10.2607 8.42489 10.2214 8.544L9.97435 9.306C9.92207 9.46364 9.83452 9.60729 9.71835 9.726C9.60382 9.84223 9.46428 9.93081 9.31035 9.985L8.53435 10.238C8.41689 10.2788 8.31057 10.3465 8.22382 10.4356C8.13708 10.5247 8.0723 10.6328 8.03464 10.7513C7.99698 10.8699 7.98746 10.9955 8.00686 11.1184C8.02625 11.2412 8.07401 11.3578 8.14635 11.459C8.24456 11.5988 8.38462 11.7039 8.54635 11.759L9.30935 12.006C9.46821 12.0594 9.61262 12.1487 9.73135 12.267C9.84958 12.3852 9.93801 12.5299 9.98935 12.689L10.2424 13.463C10.2971 13.6195 10.3992 13.755 10.5344 13.851ZM9.62035 11.058L9.44235 10.999L9.62635 10.935C9.92811 10.83 10.2018 10.6573 10.4264 10.43C10.6528 10.201 10.8238 9.92326 10.9264 9.618L10.9844 9.44L11.0434 9.621C11.1453 9.9277 11.3175 10.2064 11.5461 10.4348C11.7748 10.6633 12.0536 10.8352 12.3604 10.937L12.5554 11L12.3754 11.059C12.068 11.1612 11.7888 11.3339 11.5601 11.5632C11.3314 11.7926 11.1596 12.0723 11.0584 12.38L10.9994 12.561L10.9414 12.38C10.84 12.0716 10.6676 11.7914 10.4382 11.5618C10.2088 11.3322 9.92863 11.1596 9.62035 11.058Z" fill="#606060"/>
+              </svg>
+              <span>Copilot CLI</span>
+            </div>
+            <!-- Default Approvals pill -->
+            <div class="action-pill">
+              <!-- shield 16×16 -->
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex-shrink:0">
+                <path d="M7.64728 2.14638C7.84268 1.95105 8.15946 1.95123 8.35464 2.14678C9.5947 3.38913 10.9689 4 12.5 4C12.7761 4 13 4.22386 13 4.5V7.50126C13 10.7196 11.3587 12.9075 8.15811 13.9743C8.05548 14.0086 7.94452 14.0086 7.84189 13.9743C4.64126 12.9075 3 10.7196 3 7.50126V4.5C3 4.22386 3.22386 4 3.5 4C5.02923 4 6.40416 3.38902 7.64728 2.14638ZM8.00042 3.18917C6.81393 4.25491 5.47941 4.86879 4 4.98118V7.50126C4 8.9349 4.36269 10.0655 5.02127 10.9453C5.65858 11.7967 6.62953 12.4885 8 12.9715C9.37047 12.4885 10.3414 11.7967 10.9787 10.9453C11.6373 10.0655 12 8.9349 12 7.50126V4.98121C10.5195 4.86895 9.18521 4.25528 8.00042 3.18917Z" fill="#606060"/>
+              </svg>
+              <span>Default Approvals</span>
+            </div>
+          </div>
+        </div><!-- /chat-input-wrap -->
+
+      </div><!-- /chat-panel -->
+
+      <!-- Aux panel -->
+      <div class="aux-panel">
+        <!-- tabs: Change (active), File (inactive) -->
+        <div class="aux-title">
+          <div class="tab active">Change</div>
+          <div class="tab inactive">File</div>
+          <div class="spacer"></div>
+          <span class="more-btn">⋯</span>
+        </div>
+
+        <div class="aux-body">
+          <!-- Merge Changes button row -->
+          <div class="merge-row">
+            <div class="merge-btn">
+              <div class="merge-btn-main">
+                <!-- git-merge 14×14 -->
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="flex-shrink:0">
+                  <path d="M11.503 7.50001C11.502 7.5 11.501 7.5 11.5 7.5H9.8798C9.14999 7.5 8.45662 7.18109 7.98166 6.62698L6.47827 4.87302C6.00332 4.31891 5.30994 4 4.58013 4H2.5C2.22386 4 2 4.22386 2 4.5C2 4.77614 2.22386 5 2.5 5H4.58013C5.01802 5 5.43404 5.19134 5.71902 5.52381L7.22241 7.27777C7.46943 7.56596 7.75865 7.80871 8.07701 8C7.75865 8.19129 7.46943 8.43404 7.22241 8.72223L5.71902 10.4762C5.43404 10.8087 5.01802 11 4.58013 11H2.5C2.22386 11 2 11.2239 2 11.5C2 11.7761 2.22386 12 2.5 12H4.58013C5.30994 12 6.00332 11.6811 6.47827 11.127L7.98166 9.37302C8.45662 8.81891 9.14999 8.5 9.8798 8.5L12.4129 8.50001L10.1204 11.1746C9.94067 11.3843 9.96495 11.6999 10.1746 11.8796C10.3843 12.0593 10.6999 12.0351 10.8796 11.8254L13.8796 8.3254C14.0401 8.13816 14.0401 7.86186 13.8796 7.67461L10.8796 4.17461C10.6999 3.96495 10.3843 3.94067 10.1746 4.12038C9.96495 4.30009 9.94067 4.61574 10.1204 4.8254L12.4129 7.50001H11.503Z" fill="white"/>
+                </svg>
+                <span class="merge-btn-label">Merge Changes</span>
+              </div>
+              <div class="merge-btn-sep"><div class="merge-btn-sep-line"></div></div>
+              <div class="merge-btn-chevron">
+                <!-- chevron-down white -->
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M3.14645 5.64645C3.34171 5.45118 3.65829 5.45118 3.85355 5.64645L8 9.79289L12.1464 5.64645C12.3417 5.45118 12.6583 5.45118 12.8536 5.64645C13.0488 5.84171 13.0488 6.15829 12.8536 6.35355L8.35355 10.8536C8.15829 11.0488 7.84171 11.0488 7.64645 10.8536L3.14645 6.35355C2.95118 6.15829 2.95118 5.84171 3.14645 5.64645Z" fill="white"/>
+                </svg>
+              </div>
+            </div>
+            <!-- code-review / comment btn -->
+            <div class="comment-btn">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M1 4.5C1 3.11929 2.11929 2 3.5 2H12.5C13.8807 2 15 3.11929 15 4.5V9.5C15 10.8807 13.8807 12 12.5 12H8.68787L5.62533 14.6797C4.99168 15.2342 4 14.7842 4 13.9422V12H3.5C2.11929 12 1 10.8807 1 9.5V4.5ZM3.5 3C2.67157 3 2 3.67157 2 4.5V9.5C2 10.3284 2.67157 11 3.5 11H5V13.8981L8.31213 11H12.5C13.3284 11 14 10.3284 14 9.5V4.5C14 3.67157 13.3284 3 12.5 3H3.5Z" fill="#606060"/>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Branch Changes section header -->
+          <div class="branch-changes-section">
+            <div class="branch-changes-header">
+              <span class="branch-changes-label">Branch Changes</span>
+              <!-- chevron-down 14×14 -->
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <path d="M3.14645 5.64645C3.34171 5.45118 3.65829 5.45118 3.85355 5.64645L8 9.79289L12.1464 5.64645C12.3417 5.45118 12.6583 5.45118 12.8536 5.64645C13.0488 5.84171 13.0488 6.15829 12.8536 6.35355L8.35355 10.8536C8.15829 11.0488 7.84171 11.0488 7.64645 10.8536L3.14645 6.35355C2.95118 6.15829 2.95118 5.84171 3.14645 5.64645Z" fill="#606060"/>
+              </svg>
+            </div>
+          </div>
+
+        </div>
+      </div><!-- /aux-panel -->
+
+    </div><!-- /body -->
+  </div><!-- /chat-area -->
+
+</div><!-- /root -->
+<script>
+  // Scroll message streams to the bottom on load
+  document.querySelectorAll('.message-stream').forEach(el => {
+    el.scrollTop = el.scrollHeight;
+  });
+</script>
+  <script type="module" src="./creature-sprite.js"></script>
+</body>
+</html>

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tamagotchi – Sleep</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: #d0d0d0;
+      font-family: monospace;
+    }
+
+    canvas {
+      width: 240px;
+      height: 240px;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      border: 2px solid #888;
+      background: #ffffff;
+    }
+
+    p {
+      margin-top: 12px;
+      font-size: 13px;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="creature" width="12" height="12"></canvas>
+  <p>creature_sleep · 12 × 12 px</p>
+
+  <script>
+    const canvas = document.getElementById('creature');
+    const ctx    = canvas.getContext('2d');
+
+    // ─── 12×12 sprite data ────────────────────────────────────────────────────
+    //  0 = white   1 = black   2 = grey (#CBCCCE)
+    //  Sleep mode: eyes are 2-px horizontal bars.
+    const BASE = [
+      [0,0,0,0,0,0,0,0,0,0,0,0], //  0
+      [0,0,0,1,0,0,0,0,1,0,0,0], //  1
+      [0,0,1,0,1,0,0,1,0,1,0,0], //  2
+      [0,0,0,0,0,1,1,0,0,0,0,0], //  3
+      [0,0,0,0,1,2,2,1,0,0,0,0], //  4 – grey shading
+      [0,0,0,1,2,0,0,0,1,0,0,0], //  5
+      [0,0,1,2,0,0,0,0,0,1,0,0], //  6
+      [0,1,2,0,0,0,0,0,0,0,1,0], //  7
+      [1,2,0,1,1,0,0,1,1,0,0,1], //  8 – sleep eyes: 2-px bars at cols 4–5 & 7–8
+      [1,2,0,0,0,0,0,0,0,0,0,1], //  9
+      [1,2,2,2,0,0,0,0,0,0,0,1], // 10
+      [0,1,1,1,1,1,1,1,1,1,1,0], // 11
+    ];
+
+    // ─── Rendering ────────────────────────────────────────────────────────────
+    const colors = ['#ffffff', '#000000', '#CBCCCE'];
+
+    function cloneSprite(sprite) {
+      return sprite.map((row) => row.slice());
+    }
+
+    // Ear shape coordinates (left + right), moved as a unit so the ear
+    // silhouette remains intact and connected while bobbing.
+    const EAR_PIXELS = [
+      [1, 3], [2, 2], [2, 4], // left ear shape
+      [1, 8], [2, 7], [2, 9], // right ear shape
+    ];
+
+    // Keep the ear bridge/body pixels static so the ears always feel attached.
+    function getSleepFrame(earOffset) {
+      const frame = cloneSprite(BASE);
+
+      // Clear original ear pixels first.
+      for (let i = 0; i < EAR_PIXELS.length; i++) {
+        const [r, c] = EAR_PIXELS[i];
+        frame[r][c] = 0;
+      }
+
+      // Redraw full ear shapes at the new offset.
+      for (let i = 0; i < EAR_PIXELS.length; i++) {
+        const [r, c] = EAR_PIXELS[i];
+        const newR = Math.max(0, Math.min(11, r + earOffset));
+        frame[newR][c] = 1;
+      }
+
+      return frame;
+    }
+
+    function draw(sprite) {
+      for (let y = 0; y < 12; y++) {
+        for (let x = 0; x < 12; x++) {
+          ctx.fillStyle = colors[sprite[y][x]];
+          ctx.fillRect(x, y, 1, 1);
+        }
+      }
+    }
+
+    let lastOffset = 99;
+
+    function animate() {
+      const t = performance.now() * 0.001;
+
+      // Slow breathing cadence: about one full cycle every ~5 seconds.
+      const wave = Math.sin(t * 1.25);
+
+      // Use two connected states (0 and +1) so ears stay attached throughout.
+      const earOffset = wave > 0 ? 1 : 0;
+
+      if (earOffset !== lastOffset) {
+        draw(getSleepFrame(earOffset));
+        lastOffset = earOffset;
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    draw(getSleepFrame(0));
+    requestAnimationFrame(animate);
+  </script>
+
+</body>
+</html>

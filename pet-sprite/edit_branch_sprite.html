@@ -1,0 +1,691 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Edit branch sprite (branch-tree tuner)</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #1e1e1e;
+    --panel: #252526;
+    --border: #333;
+    --text: #d4d4d4;
+    --muted: #8a8a8a;
+    --accent: #23a8f2;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", Segoe UI, sans-serif;
+    font-size: 13px;
+  }
+  header {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  header h1 { margin: 0; font-size: 15px; font-weight: 600; }
+  header .sub { color: var(--muted); font-size: 12px; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 24px;
+    padding: 24px;
+    align-items: start;
+  }
+
+  .editor-col {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .canvas-wrap {
+    background: #2a2a2a;
+    border: 1px solid var(--border);
+    padding: 12px;
+    border-radius: 6px;
+    display: inline-block;
+  }
+
+  /* Pixel grid — each cell = one sprite pixel scaled up */
+  #grid {
+    display: grid;
+    grid-template-columns: repeat(40, 18px);
+    grid-template-rows: repeat(24, 18px);
+    gap: 1px;
+    background: #111;
+    padding: 1px;
+    user-select: none;
+    touch-action: none;
+  }
+  .cell {
+    width: 18px;
+    height: 18px;
+    background-color: transparent;
+    background-image:
+      linear-gradient(45deg, #2f2f2f 25%, transparent 25%),
+      linear-gradient(-45deg, #2f2f2f 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #2f2f2f 75%),
+      linear-gradient(-45deg, transparent 75%, #2f2f2f 75%);
+    background-size: 8px 8px;
+    background-position: 0 0, 0 4px, 4px -4px, -4px 0;
+    background-color: #222;
+    cursor: crosshair;
+  }
+  .cell.filled { background-image: none; }
+  /* Cells that belong to the creature (locked backdrop). Cannot be painted. */
+  .cell.locked {
+    cursor: not-allowed;
+    /* dim locked pixels slightly so the editable icon-zone reads brighter */
+    opacity: 0.55;
+  }
+  .cell.locked.filled { background-image: none; }
+
+  /* Yellow outline around the 18x16 icon zone so users know where to paint. */
+  #grid { position: relative; }
+  #icon-outline {
+    position: absolute;
+    pointer-events: none;
+    border: 2px solid rgba(255, 209, 64, 0.9);
+    border-radius: 2px;
+  }
+
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+  .swatch {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--text);
+    font-family: SF Mono, Menlo, monospace;
+    font-size: 12px;
+  }
+  .swatch.active {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+  .swatch .chip {
+    width: 16px;
+    height: 16px;
+    border: 1px solid #555;
+    background-image:
+      linear-gradient(45deg, #333 25%, transparent 25%),
+      linear-gradient(-45deg, #333 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #333 75%),
+      linear-gradient(-45deg, transparent 75%, #333 75%);
+    background-size: 6px 6px;
+    background-position: 0 0, 0 3px, 3px -3px, -3px 0;
+  }
+  .swatch .chip.filled { background-image: none; }
+
+  .theme-toggle { display: inline-flex; gap: 6px; margin-left: 8px; }
+  .theme-btn {
+    padding: 6px 10px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .theme-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
+  .theme-btn.green.active { background: #24bfa5; border-color: #24bfa5; color: #000; }
+
+  .btn {
+    padding: 6px 12px;
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .btn:hover { background: #2f2f30; }
+  .btn.primary {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+  }
+  .btn.primary:hover { filter: brightness(1.05); }
+
+  .previews {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  .preview-block {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+  }
+  .preview-block h2 {
+    margin: 0 0 12px 0;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .preview-row {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .preview-row canvas {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    background: #2a2a2a;
+    border: 1px solid #111;
+  }
+  .preview-label {
+    color: var(--muted);
+    font-family: SF Mono, Menlo, monospace;
+    font-size: 11px;
+    display: block;
+    margin-top: 6px;
+    text-align: center;
+  }
+
+  .output {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+  }
+  .output h2 {
+    margin: 0 0 8px 0;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .output .hint {
+    color: var(--muted);
+    font-size: 11px;
+    margin-bottom: 8px;
+  }
+  textarea {
+    width: 100%;
+    min-height: 260px;
+    background: #1a1a1a;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px;
+    font-family: SF Mono, Menlo, monospace;
+    font-size: 12px;
+    line-height: 1.4;
+    resize: vertical;
+  }
+
+  .kbd {
+    font-family: SF Mono, Menlo, monospace;
+    background: #333;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 11px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Branch-sprite pixel tuner</h1>
+  <span class="sub">
+    Paint the 18×16 branch icon (yellow outline). The 24×24 creature body is a locked backdrop for fit.
+    Click / drag to paint · Right-click to erase · Copy the ICON_ROWS output back into
+    <code>build_branch_themed.py</code>.
+  </span>
+</header>
+
+<div class="layout">
+  <div class="editor-col">
+    <div class="toolbar" id="palette-toolbar"></div>
+
+    <div class="toolbar">
+      <span style="color: var(--muted);">Keys:</span>
+      <span class="kbd">.</span> <span class="kbd">B</span> <span class="kbd">N</span> <span class="kbd">G</span>
+      <span style="color: var(--muted); margin-left: 12px;">·</span>
+      <span style="color: var(--muted);">Theme:</span>
+      <span class="theme-toggle" id="theme-toggle">
+        <button class="theme-btn blue active" data-theme="blue">blue</button>
+        <button class="theme-btn green" data-theme="green">green</button>
+      </span>
+      <span style="color: var(--muted); margin-left: 12px;">·</span>
+      <button class="btn" id="btn-reset">Reset to file</button>
+      <button class="btn" id="btn-clear">Clear icon</button>
+    </div>
+
+    <div class="canvas-wrap">
+      <div id="grid">
+        <div id="icon-outline"></div>
+      </div>
+    </div>
+
+    <div class="toolbar" style="color: var(--muted); font-size: 11px;">
+      Click / drag to paint the icon zone. Right-click to erase (paint <code>.</code>). Creature pixels are locked.
+    </div>
+  </div>
+
+  <div class="previews">
+    <div class="preview-block">
+      <h2>Live previews (icon + creature)</h2>
+      <div class="preview-row">
+        <div>
+          <canvas id="prev-blue-lg" width="40" height="24" style="width: 400px; height: 240px;"></canvas>
+          <span class="preview-label">blue · 10×</span>
+        </div>
+        <div>
+          <canvas id="prev-blue-sm" width="40" height="24" style="width: 160px; height: 96px;"></canvas>
+          <span class="preview-label">blue · 4×</span>
+        </div>
+      </div>
+      <div class="preview-row" style="margin-top: 16px;">
+        <div>
+          <canvas id="prev-green-lg" width="40" height="24" style="width: 400px; height: 240px;"></canvas>
+          <span class="preview-label">green · 10×</span>
+        </div>
+        <div>
+          <canvas id="prev-green-sm" width="40" height="24" style="width: 160px; height: 96px;"></canvas>
+          <span class="preview-label">green · 4×</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="output">
+      <h2>ICON_ROWS output</h2>
+      <div class="hint">Copy this array and paste it over the current <code>ICON_ROWS</code> in build_branch_themed.py, then re-run the script.</div>
+      <div class="toolbar" style="margin-bottom: 8px;">
+        <button class="btn primary" id="btn-copy">Copy to clipboard</button>
+        <span id="copy-status" style="color: var(--muted);"></span>
+      </div>
+      <textarea id="output" readonly></textarea>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ---------- Palettes (must stay in sync with build_branch_themed.py) ----------
+  const PALETTES = {
+    blue: {
+      L: '#23a8f2',           // creature LIGHT
+      M: '#0077b8',           // creature MID   (also branch body "B")
+      D: '#004e7c',           // creature DEEP
+      P: '#191a1b',           // creature PUPIL
+    },
+    green: {
+      L: '#24bfa5',
+      M: '#009a7c',           // branch body "B" in green theme
+      D: '#006451',
+      P: '#191a1b',
+    },
+  };
+
+  // Always-green branch body (never changes with theme). Matches Insiders MID.
+  const GREEN_BRANCH = '#24bfa5';
+  // Bright neon sparkle green (same in both themes).
+  const SPARK = '#00ff61';
+
+  // ---------- Sprite constants (mirror build_branch_themed.py) ----------
+  const OUT_W = 40, OUT_H = 24;
+  const CREATURE_W = 24;
+  const ICON_X = 22, ICON_Y = 6;
+  const ICON_W = 18, ICON_H = 16;
+
+  // Creature backdrop — locked pixels. Chars: L/M/D/# match the palette
+  // above; # is PUPIL.
+  const CREATURE_ROWS = [
+    "........................",
+    "........................",
+    "......DD........MM......",
+    "......DD........MM......",
+    "....DD..DD....MM..MM....",
+    "....DD..DD....MM..MM....",
+    "..........DDMM..........",
+    "..........DDMM..........",
+    "........DDMMLLLL........",
+    "........DDMMLLLL........",
+    "......DDMMLLLLLLLL......",
+    "......DDMMLLLLLLLL......",
+    "....DDMMLLLLLLLLLLLL....",
+    "....DDMMLLLLLLLLLLLL....",
+    "..DDMMLLLLLLLLLLLLLLLL..",
+    "..DDMMLLLLLLLLLLLLLLLL..",
+    "DDMMMMLLLL##LLLL##LLLLLL",
+    "DDMMMMLLLL##LLLL##LLLLLL",
+    "DDMMMMLLLL##LLLL##LLLLLL",
+    "DDMMMMLLLL##LLLL##LLLLLL",
+    "DDMMMMLLLLLLLLLLLLLLLLLL",
+    "DDMMMMLLLLLLLLLLLLLLLLLL",
+    "..DDDDMMMMLLLLLLLLLLLL..",
+    "..DDDDMMMMLLLLLLLLLLLL..",
+  ];
+
+  // Initial editable icon rows — current ICON_ROWS from build_branch_themed.py.
+  const DEFAULT_ICON_ROWS = [
+    "....GG............",  // sprite y= 6
+    "....GG............",  // sprite y= 7
+    "......BBBB....BBBB",  // sprite y= 8
+    "......BBBB....BBBB",  // sprite y= 9
+    "........BBBBBBBB..",  // sprite y=10
+    "........BBBBBBBB..",  // sprite y=11
+    "..........BBBB....",  // sprite y=12
+    "..........BBBB....",  // sprite y=13
+    "........BBBB......",  // sprite y=14
+    "........BBBB......",  // sprite y=15
+    "......BBBB......GG",  // sprite y=16
+    "......BBBB......GG",  // sprite y=17
+    "....BBBBBBBB..GG..",  // sprite y=18
+    "....BBBBBBBB..GG..",  // sprite y=19
+    "..BBBB....BBBB....",  // sprite y=20
+    "..BBBB....BBBB....",  // sprite y=21
+  ];
+
+  const STORAGE_KEY = 'edit-branch-sprite-v1';
+
+  // ---------- State ----------
+  // iconGrid[y][x] where y in 0..ICON_H-1, x in 0..ICON_W-1.
+  let iconGrid = (loadIconFromStorage() || DEFAULT_ICON_ROWS.map(r => r.split('')));
+  let currentCode = 'B';
+  let isPainting = false;
+  let paintCode = null;   // char being applied during drag ('.' for erase, palette char for paint)
+  let theme = 'blue';     // affects editor cell colors for B and creature backdrop
+
+  const codes = ['.', 'B', 'N', 'G'];
+  const codeLabels = {
+    '.': 'erase',
+    'B': 'branch (theme)',
+    'N': 'branch (green)',
+    'G': 'sparkle',
+  };
+
+  function loadIconFromStorage() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr) && arr.length === ICON_H && arr.every(r => typeof r === 'string' && r.length === ICON_W)) {
+        return arr.map(r => r.split(''));
+      }
+    } catch (_) {}
+    return null;
+  }
+  function persist() {
+    try {
+      const rows = iconGrid.map(row => row.join(''));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
+    } catch (_) {}
+  }
+
+  // Returns the theme-aware CSS color for a given icon code, for the editor.
+  function iconCodeColor(code, themeName) {
+    if (code === '.') return null;
+    if (code === 'B') return PALETTES[themeName].M;
+    if (code === 'N') return GREEN_BRANCH;
+    if (code === 'G') return SPARK;
+    return null;
+  }
+  // Creature char -> css color (L/M/D/# in CREATURE_ROWS).
+  function creatureCharColor(ch, themeName) {
+    const pal = PALETTES[themeName];
+    if (ch === 'L') return pal.L;
+    if (ch === 'M') return pal.M;
+    if (ch === 'D') return pal.D;
+    if (ch === '#') return pal.P;
+    return null;
+  }
+
+  // ---------- Palette toolbar ----------
+  const toolbar = document.getElementById('palette-toolbar');
+  codes.forEach(code => {
+    const btn = document.createElement('button');
+    btn.className = 'swatch';
+    btn.dataset.code = code;
+    const chip = document.createElement('span');
+    chip.className = 'chip';
+    if (code !== '.') {
+      chip.classList.add('filled');
+      chip.style.background = iconCodeColor(code, 'blue') || '#000';
+    }
+    btn.appendChild(chip);
+    const label = document.createElement('span');
+    label.textContent = `${code}  ${codeLabels[code]}`;
+    btn.appendChild(label);
+    btn.addEventListener('click', () => setCode(code));
+    toolbar.appendChild(btn);
+  });
+
+  function setCode(code) {
+    currentCode = code;
+    document.querySelectorAll('#palette-toolbar .swatch').forEach(s => {
+      s.classList.toggle('active', s.dataset.code === code);
+    });
+  }
+  setCode(currentCode);
+
+  // Refresh chip colors for B when theme changes.
+  function refreshPaletteChips() {
+    document.querySelectorAll('#palette-toolbar .swatch').forEach(sw => {
+      const code = sw.dataset.code;
+      const chip = sw.querySelector('.chip');
+      if (code === '.') { chip.classList.remove('filled'); chip.style.background = ''; return; }
+      chip.classList.add('filled');
+      chip.style.background = iconCodeColor(code, theme) || '#000';
+    });
+  }
+
+  // ---------- Keyboard shortcuts ----------
+  window.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+    if (e.key === '.') { setCode('.'); e.preventDefault(); return; }
+    const key = e.key.toUpperCase();
+    if (codes.includes(key)) { setCode(key); e.preventDefault(); }
+  });
+
+  // ---------- Build editor grid (40x24 full sprite) ----------
+  const gridEl = document.getElementById('grid');
+  const cells = [];  // cells[y][x]
+  for (let y = 0; y < OUT_H; y++) {
+    cells.push([]);
+    for (let x = 0; x < OUT_W; x++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.x = x;
+      cell.dataset.y = y;
+      const isIcon = (x >= ICON_X && x < ICON_X + ICON_W && y >= ICON_Y && y < ICON_Y + ICON_H);
+      if (!isIcon) cell.classList.add('locked');
+
+      cell.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        if (!isIcon) return;
+        isPainting = true;
+        paintCode = (e.button === 2) ? '.' : currentCode;
+        paintIconAt(x - ICON_X, y - ICON_Y, paintCode);
+      });
+      cell.addEventListener('mouseenter', () => {
+        if (!isPainting || !isIcon) return;
+        paintIconAt(x - ICON_X, y - ICON_Y, paintCode);
+      });
+      cell.addEventListener('contextmenu', (e) => e.preventDefault());
+      gridEl.appendChild(cell);
+      cells[y].push(cell);
+    }
+  }
+  window.addEventListener('mouseup', () => { isPainting = false; paintCode = null; });
+  window.addEventListener('blur', () => { isPainting = false; paintCode = null; });
+
+  // Position the yellow outline over the icon zone. Grid cell is 18px + 1px gap.
+  // The grid itself has 1px padding. Icon starts at x=ICON_X, y=ICON_Y.
+  (function positionIconOutline() {
+    const CELL = 18, GAP = 1, PAD = 1;
+    const outline = document.getElementById('icon-outline');
+    const left = PAD + ICON_X * (CELL + GAP) - 1;
+    const top  = PAD + ICON_Y * (CELL + GAP) - 1;
+    const width  = ICON_W * (CELL + GAP) - GAP + 2;
+    const height = ICON_H * (CELL + GAP) - GAP + 2;
+    outline.style.left = left + 'px';
+    outline.style.top = top + 'px';
+    outline.style.width = width + 'px';
+    outline.style.height = height + 'px';
+  })();
+
+  function paintIconAt(ix, iy, code) {
+    if (iconGrid[iy][ix] === code) return;
+    iconGrid[iy][ix] = code;
+    renderIconCell(ix, iy);
+    persist();
+    renderPreviews();
+    renderOutput();
+  }
+
+  function renderIconCell(ix, iy) {
+    const cell = cells[ICON_Y + iy][ICON_X + ix];
+    const code = iconGrid[iy][ix];
+    const color = iconCodeColor(code, theme);
+    if (color) {
+      cell.classList.add('filled');
+      cell.style.backgroundColor = color;
+    } else {
+      cell.classList.remove('filled');
+      cell.style.backgroundColor = '';
+    }
+  }
+
+  function renderCreatureCells() {
+    for (let y = 0; y < OUT_H; y++) {
+      const row = CREATURE_ROWS[y];
+      for (let x = 0; x < CREATURE_W; x++) {
+        const ch = row[x];
+        const cell = cells[y][x];
+        if (!cell.classList.contains('locked')) continue;  // shouldn't happen for creature cols
+        const color = creatureCharColor(ch, theme);
+        if (color) {
+          cell.classList.add('filled');
+          cell.style.backgroundColor = color;
+        } else {
+          cell.classList.remove('filled');
+          cell.style.backgroundColor = '';
+        }
+      }
+    }
+  }
+
+  function renderAllCells() {
+    // Icon zone
+    for (let iy = 0; iy < ICON_H; iy++)
+      for (let ix = 0; ix < ICON_W; ix++)
+        renderIconCell(ix, iy);
+    // Creature backdrop
+    renderCreatureCells();
+  }
+
+  // ---------- Previews (full 40x24 sprite for both themes) ----------
+  const previews = [
+    { id: 'prev-blue-lg', palette: 'blue' },
+    { id: 'prev-blue-sm', palette: 'blue' },
+    { id: 'prev-green-lg', palette: 'green' },
+    { id: 'prev-green-sm', palette: 'green' },
+  ].map(p => ({ ...p, ctx: document.getElementById(p.id).getContext('2d') }));
+
+  function renderPreviews() {
+    previews.forEach(({ ctx, palette }) => {
+      ctx.clearRect(0, 0, OUT_W, OUT_H);
+      // Creature
+      for (let y = 0; y < OUT_H; y++) {
+        const row = CREATURE_ROWS[y];
+        for (let x = 0; x < CREATURE_W; x++) {
+          const color = creatureCharColor(row[x], palette);
+          if (color) { ctx.fillStyle = color; ctx.fillRect(x, y, 1, 1); }
+        }
+      }
+      // Icon
+      for (let iy = 0; iy < ICON_H; iy++) {
+        for (let ix = 0; ix < ICON_W; ix++) {
+          const code = iconGrid[iy][ix];
+          const color = iconCodeColor(code, palette);
+          if (color) { ctx.fillStyle = color; ctx.fillRect(ICON_X + ix, ICON_Y + iy, 1, 1); }
+        }
+      }
+    });
+  }
+
+  // ---------- Output textarea ----------
+  const outEl = document.getElementById('output');
+  function renderOutput() {
+    const lines = ['ICON_ROWS = ['];
+    for (let iy = 0; iy < ICON_H; iy++) {
+      const row = iconGrid[iy].join('');
+      const spriteY = String(ICON_Y + iy).padStart(2, ' ');
+      lines.push(`    "${row}",  # sprite y=${spriteY}`);
+    }
+    lines.push(']');
+    outEl.value = lines.join('\n');
+  }
+
+  document.getElementById('btn-copy').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(outEl.value);
+      const s = document.getElementById('copy-status');
+      s.textContent = 'copied ✓';
+      setTimeout(() => { s.textContent = ''; }, 1500);
+    } catch (err) {
+      outEl.select();
+      document.execCommand('copy');
+    }
+  });
+
+  document.getElementById('btn-reset').addEventListener('click', () => {
+    iconGrid = DEFAULT_ICON_ROWS.map(r => r.split(''));
+    persist();
+    renderAllCells();
+    renderPreviews();
+    renderOutput();
+  });
+
+  document.getElementById('btn-clear').addEventListener('click', () => {
+    iconGrid = Array.from({ length: ICON_H }, () => Array(ICON_W).fill('.'));
+    persist();
+    renderAllCells();
+    renderPreviews();
+    renderOutput();
+  });
+
+  // Theme toggle: affects editor cell coloring only (previews always show both).
+  document.querySelectorAll('#theme-toggle .theme-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      theme = btn.dataset.theme;
+      document.querySelectorAll('#theme-toggle .theme-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      refreshPaletteChips();
+      renderAllCells();
+    });
+  });
+
+  // Initial render
+  renderAllCells();
+  renderPreviews();
+  renderOutput();
+</script>
+
+</body>
+</html>

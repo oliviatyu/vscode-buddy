@@ -1,0 +1,1334 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Customize Blobby - Footer Credits Prototype</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --canvas-width: 1250;
+      --canvas-height: 838;
+      --surface: #121314;
+      --surface-raised: #202223;
+      --surface-deep: #0f1011;
+      --border: #292b2d;
+      --text: #cccccc;
+      --text-muted: #8c8c8c;
+      --text-disabled: #545658;
+      --accent: #00a9d6;
+      --pet-blue: #009bd1;
+      --scale: 1;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+      background: #0b0c0d;
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    button {
+      color: inherit;
+      font: inherit;
+    }
+
+    .stage {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: calc(var(--canvas-width) * 1px);
+      height: calc(var(--canvas-height) * 1px);
+      overflow: hidden;
+      background: var(--surface);
+      box-shadow: 0 20px 80px rgb(0 0 0 / 50%);
+      transform: translate(-50%, -50%) scale(var(--scale));
+      transform-origin: center;
+    }
+
+    .reference-background {
+      position: absolute;
+      top: 48px;
+      left: 0;
+      z-index: 1;
+      display: block;
+      width: 1250px;
+      height: 767px;
+      object-fit: fill;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .option-tabs {
+      position: absolute;
+      top: 8px;
+      left: 12px;
+      z-index: 20;
+      display: flex;
+      gap: 12px;
+    }
+
+    .option-tab {
+      width: 88px;
+      height: 32px;
+      padding: 0;
+      border: 1px solid #34373a;
+      border-radius: 3px;
+      background: #17191a;
+      color: #9da0a3;
+      cursor: pointer;
+      font-family: Menlo, Monaco, "Courier New", monospace;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .option-tab[aria-selected="true"] {
+      border-color: #1683a1;
+      background: #202324;
+      box-shadow: inset 0 -2px 0 var(--accent);
+      color: #f0f3f5;
+    }
+
+    .option-tab:focus-visible {
+      outline: 1px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .titlebar {
+      position: relative;
+      z-index: 5;
+      display: none;
+      height: 65px;
+      border-bottom: 1px solid #27292b;
+      background: var(--surface);
+    }
+
+    .title {
+      position: absolute;
+      top: 11px;
+      left: 6px;
+      margin: 0;
+      color: #a3a3a3;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+
+    .tabs {
+      position: absolute;
+      bottom: 0;
+      left: 8px;
+      display: flex;
+      height: 34px;
+      align-items: end;
+      gap: 2px;
+    }
+
+    .tab {
+      position: relative;
+      height: 32px;
+      padding: 0 11px;
+      border: 0;
+      background: transparent;
+      color: #a2a2a2;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .tab[aria-selected="true"] {
+      border: 1px solid #1683a1;
+      border-bottom-color: transparent;
+      border-radius: 6px 6px 0 0;
+      color: #d4d4d4;
+      background: #17191a;
+    }
+
+    .tab[aria-selected="true"]::after {
+      position: absolute;
+      right: 9px;
+      bottom: -1px;
+      left: 9px;
+      height: 2px;
+      background: var(--accent);
+      content: "";
+    }
+
+    .window-actions {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      display: flex;
+      gap: 8px;
+    }
+
+    .icon-button {
+      display: grid;
+      width: 18px;
+      height: 18px;
+      padding: 0;
+      place-items: center;
+      border: 0;
+      background: transparent;
+      color: #777b7e;
+      cursor: pointer;
+    }
+
+    .icon-button:hover,
+    .icon-button:focus-visible {
+      color: #d0d0d0;
+      outline: none;
+    }
+
+    .icon-button svg {
+      width: 15px;
+      height: 15px;
+      fill: none;
+      stroke: currentColor;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 1.2;
+    }
+
+    .content {
+      position: absolute;
+      inset: 65px 0 0;
+      display: none;
+      overflow: hidden;
+    }
+
+    .achievement-grid {
+      display: grid;
+      width: 818px;
+      margin-left: 142px;
+      grid-template-columns: repeat(3, 238px);
+      grid-auto-rows: 213px;
+      gap: 14px;
+      transform: translateY(-68px);
+    }
+
+    .card {
+      position: relative;
+      min-width: 0;
+      overflow: hidden;
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface-raised);
+    }
+
+    .card--disabled {
+      background: #17191a;
+      color: var(--text-disabled);
+      opacity: 0.62;
+    }
+
+    .card--coming-soon {
+      grid-column: 1;
+      min-height: 210px;
+    }
+
+    .card-copy {
+      position: absolute;
+      right: 14px;
+      bottom: 16px;
+      left: 14px;
+    }
+
+    .card-title,
+    .card-kicker,
+    .card-body,
+    .reward {
+      margin: 0;
+      font-size: 11px;
+      line-height: 1.55;
+    }
+
+    .card-title {
+      margin-bottom: 2px;
+      color: #c6c6c6;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .card-kicker {
+      margin-bottom: 8px;
+      color: #a8a8a8;
+    }
+
+    .card-body {
+      margin-bottom: 6px;
+      color: #969696;
+    }
+
+    .reward {
+      color: #898989;
+    }
+
+    .badge {
+      position: absolute;
+      top: 9px;
+      right: 10px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: #168aaa;
+      color: #e8fbff;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .art-tile {
+      position: absolute;
+      top: 15px;
+      left: 50%;
+      display: grid;
+      width: 80px;
+      height: 80px;
+      place-items: center;
+      border: 1px solid #27292b;
+      border-radius: 5px;
+      background: var(--surface-deep);
+      transform: translateX(-50%);
+    }
+
+    .party-blob {
+      position: relative;
+      width: 50px;
+      height: 36px;
+      margin-top: 26px;
+      background: #55c4aa;
+      clip-path: polygon(14% 29%, 27% 29%, 27% 14%, 73% 14%, 73% 29%, 86% 29%, 100% 58%, 100% 100%, 0 100%, 0 58%);
+      image-rendering: pixelated;
+    }
+
+    .party-blob::before {
+      position: absolute;
+      bottom: 13px;
+      left: 14px;
+      width: 5px;
+      height: 11px;
+      background: #161819;
+      box-shadow: 22px 0 #161819;
+      content: "";
+    }
+
+    .party-hat {
+      position: absolute;
+      top: 4px;
+      left: 22px;
+      width: 35px;
+      height: 34px;
+      background: repeating-linear-gradient(135deg, #f04aa3 0 7px, #c71773 7px 14px);
+      clip-path: polygon(50% 0, 100% 100%, 0 100%);
+    }
+
+    .party-hat::before {
+      position: absolute;
+      top: -6px;
+      left: 15px;
+      width: 6px;
+      height: 7px;
+      background: #ffc933;
+      content: "";
+    }
+
+    .locked-shape {
+      width: 55px;
+      height: 42px;
+      background: #77797b;
+      clip-path: polygon(15% 0, 26% 0, 26% 18%, 76% 18%, 76% 0, 88% 0, 88% 18%, 100% 18%, 100% 72%, 88% 72%, 88% 100%, 15% 100%, 15% 72%, 0 72%, 0 18%, 15% 18%);
+    }
+
+    .locked-shape--antennae {
+      height: 54px;
+      clip-path: polygon(0 0, 12% 0, 40% 28%, 60% 28%, 88% 0, 100% 0, 70% 38%, 90% 55%, 100% 100%, 0 100%, 10% 55%, 30% 38%);
+    }
+
+    .tbd {
+      color: #979797;
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+
+    .feature-list {
+      margin: 8px 0 0 8px;
+      padding-left: 12px;
+      color: #999;
+      font-size: 11px;
+      line-height: 1.7;
+    }
+
+    .color-panel {
+      display: none;
+      width: 560px;
+      margin: 56px auto;
+      padding: 24px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface-raised);
+    }
+
+    .color-panel h2 {
+      margin: 0 0 8px;
+      font-size: 16px;
+    }
+
+    .color-panel p {
+      margin: 0 0 20px;
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+
+    .swatches {
+      display: flex;
+      gap: 12px;
+    }
+
+    .swatch {
+      width: 44px;
+      height: 44px;
+      border: 2px solid transparent;
+      border-radius: 8px;
+      background: var(--swatch);
+      cursor: pointer;
+    }
+
+    .swatch[aria-pressed="true"] {
+      border-color: #f0f0f0;
+      box-shadow: 0 0 0 2px var(--accent);
+    }
+
+    .footer-extension {
+      --pet-group-left: calc(100% - 248px);
+      position: absolute;
+      z-index: 2;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      height: 69px;
+      background: var(--surface);
+    }
+
+    .pet {
+      position: absolute;
+      z-index: 4;
+      top: 30px;
+      display: grid;
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      place-items: end center;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      image-rendering: pixelated;
+    }
+
+    .footer-extension[data-state="rest"] .pet--left {
+      animation: invite-jump 7s steps(1, end) 0.8s infinite;
+    }
+
+    .pet--left {
+      left: var(--pet-group-left);
+    }
+
+    .pet--right {
+      left: calc(var(--pet-group-left) + 116px);
+    }
+
+    .pet img {
+      --facing: 1;
+      display: block;
+      width: 36px;
+      height: 33px;
+      image-rendering: pixelated;
+      transform: scaleX(var(--facing));
+      transform-origin: center;
+      transition: filter 160ms ease;
+      animation: breathe 1.8s steps(2, end) infinite;
+    }
+
+    .pet--right img {
+      --facing: -1;
+    }
+
+    .pet::after {
+      position: absolute;
+      top: 24px;
+      left: 17px;
+      width: 3px;
+      height: 6px;
+      background: #23a8f2;
+      box-shadow: 9px 0 #23a8f2;
+      content: "";
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .pet--left::after {
+      animation: blink-left 6.4s steps(1, end) 1.1s infinite;
+    }
+
+    .pet--right::after {
+      left: 8px;
+      animation: blink-right 8.1s steps(1, end) 3.4s infinite;
+    }
+
+    .pet:focus-visible {
+      outline: 1px solid var(--accent);
+      outline-offset: 3px;
+    }
+
+    .speech-bubble {
+      position: absolute;
+      z-index: 6;
+      bottom: 51px;
+      min-width: 66px;
+      max-width: 210px;
+      padding: 6px 8px;
+      border: 0;
+      border-radius: 0;
+      background: #d6d8da;
+      box-shadow:
+        -3px 0 0 #d6d8da,
+        3px 0 0 #d6d8da,
+        0 -3px 0 #d6d8da,
+        0 3px 0 #d6d8da;
+      color: #202428;
+      font-family: Menlo, Monaco, "Courier New", monospace;
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 1.25;
+      text-align: center;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transform: translate(-50%, 5px);
+      transition: opacity 70ms steps(1, end), transform 70ms steps(2, end);
+    }
+
+    .speech-bubble[data-speaker="left"] {
+      left: calc(var(--pet-group-left) + 18px);
+    }
+
+    .speech-bubble[data-speaker="right"] {
+      right: 80px;
+      left: auto;
+      transform: translateY(5px);
+    }
+
+    .speech-bubble.is-visible {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+
+    .speech-bubble[data-speaker="right"].is-visible {
+      transform: translateY(0);
+    }
+
+    .speech-bubble::after {
+      position: absolute;
+      bottom: -8px;
+      left: calc(50% - 4px);
+      width: 4px;
+      height: 8px;
+      background: #d6d8da;
+      box-shadow: 4px 0 0 #d6d8da;
+      content: "";
+    }
+
+    .speech-bubble[data-speaker="left"]::after {
+      right: auto;
+    }
+
+    .speech-bubble[data-speaker="right"]::after {
+      right: 31px;
+      left: auto;
+    }
+
+    .option-two-scene {
+      --scene-center: calc(100% - 120px);
+      position: absolute;
+      z-index: 3;
+      inset: 48px 0 0;
+      overflow: visible;
+      background: transparent;
+    }
+
+    .option-two-scene[hidden] {
+      display: none;
+    }
+
+    .crate-button {
+      position: absolute;
+      right: 98.5px;
+      bottom: 6px;
+      z-index: 5;
+      width: 43px;
+      height: 43px;
+      padding: 0;
+      border: 0;
+      background: #a96832;
+      box-shadow:
+        -4px 0 0 #4b2a17,
+        4px 0 0 #4b2a17,
+        0 -4px 0 #4b2a17,
+        0 4px 0 #4b2a17,
+        inset 0 0 0 4px #7a451f;
+      color: #fff0c7;
+      cursor: pointer;
+      image-rendering: pixelated;
+    }
+
+    .crate-button::before {
+      position: absolute;
+      inset: 8px;
+      border: 3px solid #663817;
+      background: repeating-linear-gradient(0deg, #a96832 0 7px, #945627 7px 9px);
+      content: "";
+    }
+
+    .crate-button::after {
+      position: absolute;
+      inset: 3px;
+      border-top: 2px solid #d28a48;
+      border-left: 2px solid #c77b3c;
+      content: "";
+      pointer-events: none;
+    }
+
+    .crate-button:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 6px;
+    }
+
+    .option-two-scene[data-state="rest"] .crate-button {
+      animation: crate-shake 5.6s steps(1, end) 0.9s infinite;
+    }
+
+    .solo-pet {
+      position: absolute;
+      bottom: 16px;
+      left: calc(var(--scene-center) - 18px);
+      z-index: 4;
+      width: 36px;
+      height: 36px;
+      opacity: 0;
+      image-rendering: pixelated;
+      pointer-events: none;
+    }
+
+    .solo-pet img {
+      --facing: -1;
+      display: block;
+      width: 36px;
+      height: 33px;
+      image-rendering: pixelated;
+      animation: breathe 1.8s steps(2, end) infinite;
+    }
+
+    .solo-pet::after {
+      position: absolute;
+      top: 24px;
+      left: 8px;
+      width: 3px;
+      height: 6px;
+      background: #23a8f2;
+      box-shadow: 9px 0 #23a8f2;
+      content: "";
+      opacity: 0;
+      animation: blink-right 7.3s steps(1, end) 2.2s infinite;
+    }
+
+    .option-two-scene[data-state="emerging"] .solo-pet {
+      bottom: 49px;
+      opacity: 1;
+      animation: pet-pop-to-crate 640ms linear forwards;
+      will-change: bottom, transform;
+    }
+
+    .option-two-scene[data-state="speaking"] .solo-pet {
+      bottom: 49px;
+      opacity: 1;
+    }
+
+    .option-two-scene[data-state="hiding"] .solo-pet {
+      bottom: 16px;
+      opacity: 0;
+      transition:
+        bottom 420ms steps(4, end),
+        opacity 1ms step-end 419ms;
+    }
+
+    .speech-bubble.option-two-bubble,
+    .speech-bubble.option-two-bubble.is-visible {
+      right: auto;
+      bottom: 104px;
+      left: var(--scene-center);
+    }
+
+    .speech-bubble.option-two-bubble::after {
+      right: auto;
+      left: calc(50% - 4px);
+    }
+
+    @keyframes crate-shake {
+      0%,
+      5%,
+      10%,
+      15%,
+      20%,
+      100% {
+        transform: translateX(0) rotate(0);
+      }
+      7%,
+      17% {
+        transform: translateX(-2px) rotate(-1deg);
+      }
+      12% {
+        transform: translateX(2px) rotate(1deg);
+      }
+    }
+
+    @keyframes pet-pop-to-crate {
+      0% {
+        bottom: 16px;
+        opacity: 0;
+        transform: scaleY(0.72);
+        animation-timing-function: cubic-bezier(0.1, 0.8, 0.15, 1);
+      }
+      6% {
+        bottom: 22px;
+        opacity: 1;
+        transform: scaleY(0.82);
+        animation-timing-function: cubic-bezier(0.08, 0.92, 0.18, 1);
+      }
+      16% {
+        bottom: 68px;
+        opacity: 1;
+        transform: scaleY(1.12);
+      }
+      26% {
+        bottom: 78px;
+        opacity: 1;
+        transform: scaleY(1);
+        animation-timing-function: cubic-bezier(0.36, 0, 0.78, 0.54);
+      }
+      36% {
+        bottom: 77px;
+        opacity: 1;
+        transform: scaleY(1);
+      }
+      68% {
+        bottom: 55px;
+        opacity: 1;
+        transform: scaleY(1);
+        animation-timing-function: cubic-bezier(0.18, 0.86, 0.28, 1);
+      }
+      80% {
+        bottom: 47px;
+        opacity: 1;
+        transform: scaleY(0.88);
+      }
+      90% {
+        bottom: 54px;
+        opacity: 1;
+        transform: scaleY(1.03);
+      }
+      100% {
+        bottom: 49px;
+        opacity: 1;
+        transform: scaleY(1);
+      }
+    }
+
+    .reopen {
+      display: none;
+      padding: 8px 12px;
+      border: 1px solid #3d4043;
+      border-radius: 5px;
+      background: #252728;
+      cursor: pointer;
+    }
+
+    body.is-closed .stage {
+      display: none;
+    }
+
+    body.is-closed .reopen {
+      display: block;
+    }
+
+    body.is-expanded .stage {
+      box-shadow: none;
+    }
+
+    @keyframes breathe {
+      0%,
+      100% {
+        transform: scaleX(var(--facing)) translateY(0);
+      }
+      50% {
+        transform: scaleX(var(--facing)) translateY(-1px);
+      }
+    }
+
+    @keyframes invite-jump {
+      0%,
+      10%,
+      16%,
+      100% {
+        transform: translateY(0);
+      }
+      5% {
+        transform: translateY(-9px);
+      }
+      13% {
+        transform: translateY(-4px);
+      }
+    }
+
+    @keyframes blink-left {
+      0%,
+      10%,
+      13%,
+      64%,
+      67%,
+      70%,
+      100% {
+        opacity: 0;
+      }
+      11%,
+      12%,
+      65%,
+      66%,
+      68%,
+      69% {
+        opacity: 1;
+      }
+    }
+
+    @keyframes blink-right {
+      0%,
+      28%,
+      31%,
+      78%,
+      81%,
+      100% {
+        opacity: 0;
+      }
+      29%,
+      30%,
+      79%,
+      80% {
+        opacity: 1;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .pet,
+      .pet img,
+      .pet::after,
+      .crate-button,
+      .solo-pet,
+      .solo-pet img,
+      .solo-pet::after {
+        animation: none;
+      }
+
+      .solo-pet {
+        transition: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="stage" aria-label="Customize Blobby prototype">
+    <nav class="option-tabs" aria-label="Credits concepts">
+      <button class="option-tab" type="button" role="tab" aria-selected="true" data-option="1">
+        Option 1
+      </button>
+      <button class="option-tab" type="button" role="tab" aria-selected="false" data-option="2">
+        Option 2
+      </button>
+    </nav>
+
+    <img
+      class="reference-background"
+      src="./assets/frame-105-background.png"
+      alt=""
+      width="1250"
+      height="767"
+    >
+    <header class="titlebar">
+      <h1 class="title">Customize Blobby</h1>
+
+      <nav class="tabs" aria-label="Customization sections">
+        <button class="tab" type="button" role="tab" aria-selected="true" data-tab="achievements">
+          Achievements
+        </button>
+        <button class="tab" type="button" role="tab" aria-selected="false" data-tab="color">
+          Color
+        </button>
+      </nav>
+
+      <div class="window-actions" aria-label="Window controls">
+        <button class="icon-button" type="button" aria-label="Open in new window">
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M6.5 3.5h-3v9h9v-3M8 3.5h4.5V8M12.2 3.8 7 9"/>
+          </svg>
+        </button>
+        <button class="icon-button" id="expand" type="button" aria-label="Toggle expanded view">
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M6 3H3v3M10 3h3v3M6 13H3v-3M10 13h3v-3"/>
+          </svg>
+        </button>
+        <button class="icon-button" id="close" type="button" aria-label="Close prototype">
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path d="m4 4 8 8M12 4l-8 8"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <section class="content" id="achievements-panel" role="tabpanel">
+      <div class="achievement-grid">
+        <article class="card card--disabled">
+          <div class="card-copy">
+            <p class="card-body">Give a good idea time to come together.</p>
+            <p class="reward">Rewards: White Chef Hat</p>
+          </div>
+        </article>
+        <article class="card">
+          <div class="card-copy">
+            <p class="card-body">You opened agent changes for review.</p>
+            <p class="reward">Rewards: Bamboo Hat</p>
+          </div>
+        </article>
+        <article class="card card--disabled">
+          <div class="card-copy">
+            <p class="card-body">Useful answers often point somewhere worth exploring.</p>
+            <p class="reward">Rewards: Straw Hat</p>
+          </div>
+        </article>
+
+        <article class="card">
+          <span class="badge">New</span>
+          <div class="art-tile" aria-hidden="true">
+            <div class="party-hat"></div>
+            <div class="party-blob"></div>
+          </div>
+          <div class="card-copy">
+            <h2 class="card-title">Copy That</h2>
+            <p class="card-kicker">Unlocked</p>
+            <p class="card-body">You copied useful output from Chat.</p>
+            <p class="reward">Rewards: Pink Party Hat</p>
+          </div>
+        </article>
+        <article class="card card--disabled">
+          <div class="art-tile" aria-hidden="true">
+            <div class="locked-shape"></div>
+          </div>
+          <div class="card-copy">
+            <h2 class="card-title">Locked</h2>
+            <p class="card-kicker">Hint</p>
+            <p class="card-body">Some work is ready to carry on with less steering.</p>
+            <p class="reward">Rewards: Wizard Hat</p>
+          </div>
+        </article>
+        <article class="card card--disabled">
+          <div class="art-tile" aria-hidden="true">
+            <div class="locked-shape locked-shape--antennae"></div>
+          </div>
+          <div class="card-copy">
+            <h2 class="card-title">Locked</h2>
+            <p class="card-kicker">Hint</p>
+            <p class="card-body">This little blob has a name. Try calling it in Chat.</p>
+            <p class="reward">Rewards: Color Customization</p>
+          </div>
+        </article>
+
+        <article class="card card--coming-soon">
+          <div class="art-tile"><span class="tbd">TBD</span></div>
+          <div class="card-copy">
+            <h2 class="card-title">TBD</h2>
+            <p class="card-kicker">Coming soon</p>
+            <p class="card-body">Upcoming pet features:</p>
+            <ul class="feature-list">
+              <li>More achievements and built-in hats</li>
+              <li>Customizable hats that you can upload</li>
+            </ul>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="content" id="color-panel" role="tabpanel" hidden>
+      <div class="color-panel">
+        <h2>Choose Blobby's color</h2>
+        <p>The footer pets update together so they still feel like a pair.</p>
+        <div class="swatches">
+          <button class="swatch" style="--swatch:#009bd1" aria-label="Blue" aria-pressed="true" data-filter="none"></button>
+          <button class="swatch" style="--swatch:#49b78a" aria-label="Green" aria-pressed="false" data-filter="hue-rotate(95deg)"></button>
+          <button class="swatch" style="--swatch:#c678dd" aria-label="Purple" aria-pressed="false" data-filter="hue-rotate(225deg)"></button>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer-extension" data-option-panel="1" data-state="rest">
+      <div class="speech-bubble" data-speaker="right" role="status" aria-live="polite"></div>
+      <button class="pet pet--left" type="button" aria-label="Play credits conversation">
+        <img src="./assets/blue-pet.png" alt="">
+      </button>
+      <button class="pet pet--right" type="button" aria-label="Play credits conversation">
+        <img src="./assets/blue-pet.png" alt="">
+      </button>
+    </footer>
+
+    <section class="option-two-scene" data-option-panel="2" data-state="rest" aria-label="Credits crate concept" hidden>
+      <div class="speech-bubble option-two-bubble" role="status" aria-live="polite"></div>
+      <div class="solo-pet" aria-hidden="true">
+        <img src="./assets/blue-pet.png" alt="">
+      </div>
+      <button class="crate-button" type="button" aria-label="Open credits crate"></button>
+    </section>
+  </main>
+
+  <button class="reopen" type="button">Reopen Customize Blobby</button>
+
+  <script>
+    const stage = document.querySelector(".stage");
+    const footer = document.querySelector(".footer-extension");
+    const achievementPanel = document.querySelector("#achievements-panel");
+    const colorPanel = document.querySelector("#color-panel");
+    const tabs = [...document.querySelectorAll(".tab")];
+    const pets = [...document.querySelectorAll(".pet img")];
+    const bubble = document.querySelector(".speech-bubble");
+    const optionTabs = [...document.querySelectorAll(".option-tab")];
+    const optionTwoScene = document.querySelector(".option-two-scene");
+    const optionTwoBubble = document.querySelector(".option-two-bubble");
+    const crateButton = document.querySelector(".crate-button");
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let animationRun = 0;
+    let isSpeaking = false;
+    let optionTwoRun = 0;
+    let optionTwoSpeaking = false;
+    let optionTwoHasOpened = false;
+
+    function fitStage() {
+      const horizontalPadding = 48;
+      const verticalPadding = 48;
+      const scale = Math.min(
+        (window.innerWidth - horizontalPadding) / 1250,
+        (window.innerHeight - verticalPadding) / 838
+      );
+      document.documentElement.style.setProperty("--scale", String(scale));
+    }
+
+    function selectTab(selectedTab) {
+      const showAchievements = selectedTab.dataset.tab === "achievements";
+      tabs.forEach((tab) => {
+        tab.setAttribute("aria-selected", String(tab === selectedTab));
+      });
+      achievementPanel.hidden = !showAchievements;
+      colorPanel.hidden = showAchievements;
+      colorPanel.querySelector(".color-panel").style.display = showAchievements ? "none" : "block";
+    }
+
+    function wait(milliseconds) {
+      return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+    }
+
+    async function typeMessage(text, speaker, runId) {
+      bubble.classList.remove("is-visible");
+
+      if (!reducedMotion) {
+        await wait(80);
+      }
+
+      if (runId !== animationRun) {
+        return false;
+      }
+
+      bubble.dataset.speaker = speaker;
+      bubble.textContent = "";
+
+      if (reducedMotion) {
+        bubble.textContent = text;
+        bubble.classList.add("is-visible");
+        return true;
+      }
+
+      bubble.textContent = text.slice(0, 1);
+      bubble.classList.add("is-visible");
+
+      const millisecondsPerCharacter = 105;
+      const startedAt = performance.now();
+      let animationFrame = 0;
+
+      function renderText(now) {
+        if (runId !== animationRun) {
+          return;
+        }
+
+        const visibleCharacters = Math.min(
+          text.length,
+          Math.max(1, Math.floor((now - startedAt) / millisecondsPerCharacter) + 1)
+        );
+        bubble.textContent = text.slice(0, visibleCharacters);
+
+        if (visibleCharacters < text.length) {
+          animationFrame = window.requestAnimationFrame(renderText);
+        }
+      }
+
+      animationFrame = window.requestAnimationFrame(renderText);
+      await wait(text.length * millisecondsPerCharacter);
+      window.cancelAnimationFrame(animationFrame);
+
+      if (runId !== animationRun) {
+        return false;
+      }
+
+      bubble.textContent = text;
+
+      return true;
+    }
+
+    async function showRestPrompt() {
+      const runId = ++animationRun;
+      footer.dataset.state = "rest";
+      await typeMessage("Credits", "right", runId);
+    }
+
+    async function playCreditsConversation() {
+      if (isSpeaking) {
+        return;
+      }
+
+      isSpeaking = true;
+      const runId = ++animationRun;
+      footer.dataset.state = "speaking";
+
+      const messages = [
+        { speaker: "left", text: "Developed by", hold: 1300 },
+        { speaker: "right", text: "Justin Chen", hold: 1900 },
+        { speaker: "left", text: "Designed by", hold: 1500 },
+        { speaker: "right", text: "Olivia Yu", hold: 1800 },
+        { speaker: "right", text: "and David Hose", hold: 2200 }
+      ];
+
+      for (const message of messages) {
+        const completed = await typeMessage(message.text, message.speaker, runId);
+        if (!completed) {
+          isSpeaking = false;
+          return;
+        }
+        await wait(reducedMotion ? 250 : message.hold);
+      }
+
+      bubble.classList.remove("is-visible");
+      await wait(reducedMotion ? 0 : 180);
+
+      if (runId === animationRun) {
+        footer.dataset.state = "rest";
+        bubble.dataset.speaker = "right";
+        bubble.textContent = "Credits";
+        bubble.classList.add("is-visible");
+      }
+
+      isSpeaking = false;
+    }
+
+    async function typeOptionTwoMessage(text, runId) {
+      optionTwoBubble.classList.remove("is-visible");
+
+      if (!reducedMotion) {
+        await wait(80);
+      }
+
+      if (runId !== optionTwoRun) {
+        return false;
+      }
+
+      optionTwoBubble.textContent = "";
+
+      if (reducedMotion) {
+        optionTwoBubble.textContent = text;
+        optionTwoBubble.classList.add("is-visible");
+        return true;
+      }
+
+      optionTwoBubble.textContent = text.slice(0, 1);
+      optionTwoBubble.classList.add("is-visible");
+
+      const millisecondsPerCharacter = 105;
+      const startedAt = performance.now();
+      let animationFrame = 0;
+
+      function renderText(now) {
+        if (runId !== optionTwoRun) {
+          return;
+        }
+
+        const visibleCharacters = Math.min(
+          text.length,
+          Math.max(1, Math.floor((now - startedAt) / millisecondsPerCharacter) + 1)
+        );
+        optionTwoBubble.textContent = text.slice(0, visibleCharacters);
+
+        if (visibleCharacters < text.length) {
+          animationFrame = window.requestAnimationFrame(renderText);
+        }
+      }
+
+      animationFrame = window.requestAnimationFrame(renderText);
+      await wait(text.length * millisecondsPerCharacter);
+      window.cancelAnimationFrame(animationFrame);
+
+      if (runId !== optionTwoRun) {
+        return false;
+      }
+
+      optionTwoBubble.textContent = text;
+      return true;
+    }
+
+    function resetOptionTwo() {
+      optionTwoRun += 1;
+      optionTwoSpeaking = false;
+      optionTwoScene.dataset.state = optionTwoHasOpened ? "opened" : "rest";
+      optionTwoBubble.classList.remove("is-visible");
+      optionTwoBubble.textContent = "";
+      crateButton.disabled = false;
+    }
+
+    async function playOptionTwoConversation() {
+      if (optionTwoSpeaking) {
+        return;
+      }
+
+      optionTwoSpeaking = true;
+      optionTwoHasOpened = true;
+      crateButton.disabled = true;
+      const runId = ++optionTwoRun;
+      optionTwoScene.dataset.state = "emerging";
+
+      await wait(reducedMotion ? 0 : 680);
+
+      if (runId !== optionTwoRun) {
+        optionTwoSpeaking = false;
+        return;
+      }
+
+      optionTwoScene.dataset.state = "speaking";
+
+      const messages = [
+        { text: "Developed by Justin Chen", hold: 1900 },
+        { text: "Designed by Olivia Yu", hold: 1800 },
+        { text: "and David Hose", hold: 2200 }
+      ];
+
+      for (const message of messages) {
+        const completed = await typeOptionTwoMessage(message.text, runId);
+        if (!completed) {
+          optionTwoSpeaking = false;
+          return;
+        }
+        await wait(reducedMotion ? 250 : message.hold);
+      }
+
+      optionTwoBubble.classList.remove("is-visible");
+      await wait(reducedMotion ? 0 : 80);
+      optionTwoBubble.textContent = "";
+
+      if (runId !== optionTwoRun) {
+        optionTwoSpeaking = false;
+        return;
+      }
+
+      optionTwoScene.dataset.state = "hiding";
+      await wait(reducedMotion ? 0 : 440);
+
+      if (runId === optionTwoRun) {
+        optionTwoScene.dataset.state = "opened";
+        crateButton.disabled = false;
+      }
+
+      optionTwoSpeaking = false;
+    }
+
+    function selectOption(selectedTab) {
+      const selectedOption = selectedTab.dataset.option;
+      const showOptionOne = selectedOption === "1";
+
+      optionTabs.forEach((tab) => {
+        tab.setAttribute("aria-selected", String(tab === selectedTab));
+      });
+
+      footer.hidden = !showOptionOne;
+      optionTwoScene.hidden = showOptionOne;
+
+      if (showOptionOne) {
+        resetOptionTwo();
+        showRestPrompt();
+      } else {
+        animationRun += 1;
+        isSpeaking = false;
+        bubble.classList.remove("is-visible");
+        resetOptionTwo();
+      }
+    }
+
+    optionTabs.forEach((tab) => {
+      tab.addEventListener("click", () => selectOption(tab));
+    });
+
+    tabs.forEach((tab) => tab.addEventListener("click", () => selectTab(tab)));
+    document.querySelectorAll(".pet").forEach((pet) => {
+      pet.addEventListener("click", playCreditsConversation);
+    });
+    crateButton.addEventListener("click", playOptionTwoConversation);
+
+    document.querySelectorAll(".swatch").forEach((swatch) => {
+      swatch.addEventListener("click", () => {
+        document.querySelectorAll(".swatch").forEach((item) => {
+          item.setAttribute("aria-pressed", String(item === swatch));
+        });
+        pets.forEach((pet) => {
+          pet.style.filter = swatch.dataset.filter;
+        });
+      });
+    });
+
+    document.querySelector("#expand").addEventListener("click", () => {
+      document.body.classList.toggle("is-expanded");
+    });
+
+    document.querySelector("#close").addEventListener("click", () => {
+      document.body.classList.add("is-closed");
+    });
+
+    document.querySelector(".reopen").addEventListener("click", () => {
+      document.body.classList.remove("is-closed");
+    });
+
+    window.addEventListener("resize", fitStage);
+    fitStage();
+    showRestPrompt();
+  </script>
+</body>
+</html>

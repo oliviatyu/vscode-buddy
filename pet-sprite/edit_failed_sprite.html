@@ -1,0 +1,518 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Edit failed sprite (eye-shape tuner)</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #1e1e1e;
+    --panel: #252526;
+    --border: #333;
+    --text: #d4d4d4;
+    --muted: #8a8a8a;
+    --accent: #23a8f2;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", Segoe UI, sans-serif;
+    font-size: 13px;
+  }
+  header {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+  }
+  header h1 { margin: 0; font-size: 15px; font-weight: 600; }
+  header .sub { color: var(--muted); font-size: 12px; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 24px;
+    padding: 24px;
+    align-items: start;
+  }
+
+  .editor-col {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .canvas-wrap {
+    background: #2a2a2a;
+    border: 1px solid var(--border);
+    padding: 12px;
+    border-radius: 6px;
+    display: inline-block;
+  }
+
+  /* Pixel grid — each cell = one 24x24 pixel, scaled way up */
+  #grid {
+    display: grid;
+    grid-template-columns: repeat(24, 22px);
+    grid-template-rows: repeat(24, 22px);
+    gap: 1px;
+    background: #111;
+    padding: 1px;
+    user-select: none;
+    touch-action: none;
+    cursor: crosshair;
+  }
+  .cell {
+    width: 22px;
+    height: 22px;
+    background-color: transparent;
+    background-image:
+      linear-gradient(45deg, #333 25%, transparent 25%),
+      linear-gradient(-45deg, #333 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #333 75%),
+      linear-gradient(-45deg, transparent 75%, #333 75%);
+    background-size: 8px 8px;
+    background-position: 0 0, 0 4px, 4px -4px, -4px 0;
+    background-color: #222;
+  }
+  .cell.filled { background-image: none; }
+
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+  .swatch {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--text);
+    font-family: SF Mono, Menlo, monospace;
+    font-size: 12px;
+  }
+  .swatch.active {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+  .swatch .chip {
+    width: 16px;
+    height: 16px;
+    border: 1px solid #555;
+    background-image:
+      linear-gradient(45deg, #333 25%, transparent 25%),
+      linear-gradient(-45deg, #333 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #333 75%),
+      linear-gradient(-45deg, transparent 75%, #333 75%);
+    background-size: 6px 6px;
+    background-position: 0 0, 0 3px, 3px -3px, -3px 0;
+  }
+  .swatch .chip.filled { background-image: none; }
+
+  .btn {
+    padding: 6px 12px;
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .btn:hover { background: #2f2f30; }
+  .btn.primary {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+  }
+  .btn.primary:hover { filter: brightness(1.05); }
+
+  .previews {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  .preview-block {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+  }
+  .preview-block h2 {
+    margin: 0 0 12px 0;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .preview-row {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .preview-row canvas {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    background: #2a2a2a;
+    border: 1px solid #111;
+  }
+  .preview-label {
+    color: var(--muted);
+    font-family: SF Mono, Menlo, monospace;
+    font-size: 11px;
+    display: block;
+    margin-top: 6px;
+    text-align: center;
+  }
+
+  .output {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+  }
+  .output h2 {
+    margin: 0 0 8px 0;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .output .hint {
+    color: var(--muted);
+    font-size: 11px;
+    margin-bottom: 8px;
+  }
+  textarea {
+    width: 100%;
+    min-height: 260px;
+    background: #1a1a1a;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px;
+    font-family: SF Mono, Menlo, monospace;
+    font-size: 12px;
+    line-height: 1.4;
+    resize: vertical;
+  }
+
+  .kbd {
+    font-family: SF Mono, Menlo, monospace;
+    background: #333;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 11px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Failed-sprite pixel tuner</h1>
+  <span class="sub">Paint the 24×24 grid, preview both palettes, then copy the Python rows back into <code>build_failed_themed.py</code>.</span>
+</header>
+
+<div class="layout">
+  <div class="editor-col">
+    <div class="toolbar" id="palette-toolbar"></div>
+
+    <div class="toolbar">
+      <span style="color: var(--muted);">Keys:</span>
+      <span class="kbd">.</span> <span class="kbd">L</span> <span class="kbd">M</span> <span class="kbd">D</span> <span class="kbd">P</span>
+      <span style="color: var(--muted); margin-left: 12px;">·</span>
+      <button class="btn" id="btn-reset">Reset to file</button>
+      <button class="btn" id="btn-clear">Clear all</button>
+      <button class="btn" id="btn-mirror">Mirror L→R</button>
+    </div>
+
+    <div class="canvas-wrap">
+      <div id="grid"></div>
+    </div>
+
+    <div class="toolbar" style="color: var(--muted); font-size: 11px;">
+      Click / drag to paint. Right-click to erase (paint <code>.</code>).
+    </div>
+  </div>
+
+  <div class="previews">
+    <div class="preview-block">
+      <h2>Live previews</h2>
+      <div class="preview-row">
+        <div>
+          <canvas id="prev-blue-lg" width="24" height="24" style="width: 240px; height: 240px;"></canvas>
+          <span class="preview-label">blue · 10×</span>
+        </div>
+        <div>
+          <canvas id="prev-blue-sm" width="24" height="24" style="width: 96px; height: 96px;"></canvas>
+          <span class="preview-label">blue · 4×</span>
+        </div>
+        <div>
+          <canvas id="prev-green-lg" width="24" height="24" style="width: 240px; height: 240px;"></canvas>
+          <span class="preview-label">green · 10×</span>
+        </div>
+        <div>
+          <canvas id="prev-green-sm" width="24" height="24" style="width: 96px; height: 96px;"></canvas>
+          <span class="preview-label">green · 4×</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="output">
+      <h2>FAILED_ROWS output</h2>
+      <div class="hint">Copy this array and paste it over the current <code>FAILED_ROWS</code> in build_failed_themed.py, then re-run the script.</div>
+      <div class="toolbar" style="margin-bottom: 8px;">
+        <button class="btn primary" id="btn-copy">Copy to clipboard</button>
+        <span id="copy-status" style="color: var(--muted);"></span>
+      </div>
+      <textarea id="output" readonly></textarea>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Palette — must stay in sync with build_failed_themed.py.
+  const PALETTES = {
+    blue: {
+      L: '#23a8f2',
+      M: '#0077b8',
+      D: '#004e7c',
+      P: '#191a1b',
+    },
+    green: {
+      L: '#24bfa5',
+      M: '#009a7c',
+      D: '#006451',
+      P: '#191a1b',
+    },
+  };
+
+  // Initial state = current FAILED_ROWS from build_failed_themed.py.
+  const DEFAULT_ROWS = [
+    "........................", // y= 0
+    "........................", // y= 1
+    "......DDDD....MMMM......", // y= 2
+    "......DDDD....MMMM......", // y= 3
+    "....DD....DDMM....MM....", // y= 4
+    "....DD....DDMM....MM....", // y= 5
+    "..DD....DDMMLLLL....MM..", // y= 6
+    "..DD....DDMMLLLL....MM..", // y= 7
+    "......DDMMLLLLLLLL......", // y= 8
+    "......DDMMLLLLLLLL......", // y= 9
+    "....DDMMLLLLLLLLLLLL....", // y=10
+    "....DDMMLLLLLLLLLLLL....", // y=11
+    "..DDMMLLLLLLLLLLLLLLLL..", // y=12
+    "..DDMMLLLLLLLLLLLLLLLL..", // y=13
+    "DDMMLLLPPLLLLLLLLPPLLLLL", // y=14
+    "DDMMLLLPPLLLLLLLLPPLLLLL", // y=15
+    "DDMMLLLLLPPLLLLPPLLLLLLL", // y=16
+    "DDMMLLLLLPPLLLLPPLLLLLLL", // y=17
+    "DDMMLLLPPLLLLLLLLPPLLLLL", // y=18
+    "DDMMLLLPPLLLLLLLLPPLLLLL", // y=19
+    "DDMMMMLLLLLLLLLLLLLLLLLL", // y=20
+    "DDMMMMLLLLLLLLLLLLLLLLLL", // y=21
+    "..DDDDMMMMLLLLLLLLLLLL..", // y=22
+    "..DDDDMMMMLLLLLLLLLLLL..", // y=23
+  ];
+
+  const W = 24, H = 24;
+  // grid[y][x] = code char
+  let grid = DEFAULT_ROWS.map(r => r.split(''));
+  let currentCode = 'P';
+  let isPainting = false;
+  let paintCode = null; // what button-down painted with; used for drag
+
+  const codes = ['.', 'L', 'M', 'D', 'P'];
+  const codeLabels = {
+    '.': 'transparent',
+    'L': 'light',
+    'M': 'mid',
+    'D': 'dark',
+    'P': 'pupil',
+  };
+
+  // --- Palette toolbar
+  const toolbar = document.getElementById('palette-toolbar');
+  codes.forEach(code => {
+    const btn = document.createElement('button');
+    btn.className = 'swatch';
+    btn.dataset.code = code;
+    const chip = document.createElement('span');
+    chip.className = 'chip';
+    if (code !== '.') {
+      chip.classList.add('filled');
+      chip.style.background = PALETTES.blue[code];
+    }
+    btn.appendChild(chip);
+    const label = document.createElement('span');
+    label.textContent = `${code}  ${codeLabels[code]}`;
+    btn.appendChild(label);
+    btn.addEventListener('click', () => setCode(code));
+    toolbar.appendChild(btn);
+  });
+
+  function setCode(code) {
+    currentCode = code;
+    document.querySelectorAll('.swatch').forEach(s => {
+      s.classList.toggle('active', s.dataset.code === code);
+    });
+  }
+  setCode(currentCode);
+
+  // Keyboard shortcuts
+  window.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+    const key = e.key.toUpperCase();
+    if (key === '.' || codes.includes(key)) {
+      setCode(e.key === '.' ? '.' : key);
+      e.preventDefault();
+    }
+  });
+
+  // --- Build editor grid
+  const gridEl = document.getElementById('grid');
+  const cells = [];
+  for (let y = 0; y < H; y++) {
+    cells.push([]);
+    for (let x = 0; x < W; x++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.x = x;
+      cell.dataset.y = y;
+      cell.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        isPainting = true;
+        paintCode = (e.button === 2) ? '.' : currentCode;
+        paintCell(x, y, paintCode);
+      });
+      cell.addEventListener('mouseenter', () => {
+        if (isPainting) paintCell(x, y, paintCode);
+      });
+      cell.addEventListener('contextmenu', (e) => e.preventDefault());
+      gridEl.appendChild(cell);
+      cells[y].push(cell);
+    }
+  }
+  window.addEventListener('mouseup', () => { isPainting = false; paintCode = null; });
+  window.addEventListener('blur', () => { isPainting = false; paintCode = null; });
+
+  function paintCell(x, y, code) {
+    if (grid[y][x] === code) return;
+    grid[y][x] = code;
+    renderCell(x, y);
+    renderPreviews();
+    renderOutput();
+  }
+
+  function renderCell(x, y) {
+    const cell = cells[y][x];
+    const code = grid[y][x];
+    if (code === '.') {
+      cell.classList.remove('filled');
+      cell.style.backgroundColor = '';
+    } else {
+      cell.classList.add('filled');
+      // Use blue palette on the editor for consistent painting reference.
+      cell.style.backgroundColor = PALETTES.blue[code];
+    }
+  }
+
+  function renderAllCells() {
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) renderCell(x, y);
+    }
+  }
+
+  // --- Previews
+  const previews = [
+    { id: 'prev-blue-lg', palette: 'blue' },
+    { id: 'prev-blue-sm', palette: 'blue' },
+    { id: 'prev-green-lg', palette: 'green' },
+    { id: 'prev-green-sm', palette: 'green' },
+  ].map(p => ({ ...p, ctx: document.getElementById(p.id).getContext('2d') }));
+
+  function renderPreviews() {
+    previews.forEach(({ ctx, palette }) => {
+      ctx.clearRect(0, 0, W, H);
+      const pal = PALETTES[palette];
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const code = grid[y][x];
+          if (code === '.') continue;
+          ctx.fillStyle = pal[code];
+          ctx.fillRect(x, y, 1, 1);
+        }
+      }
+    });
+  }
+
+  // --- Output textarea (Python array of strings)
+  const outEl = document.getElementById('output');
+  function renderOutput() {
+    const lines = ['FAILED_ROWS = ['];
+    for (let y = 0; y < H; y++) {
+      const row = grid[y].join('');
+      const label = String(y).padStart(2, ' ');
+      lines.push(`    "${row}",  # y=${label}`);
+    }
+    lines.push(']');
+    outEl.value = lines.join('\n');
+  }
+
+  document.getElementById('btn-copy').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(outEl.value);
+      const s = document.getElementById('copy-status');
+      s.textContent = 'copied ✓';
+      setTimeout(() => { s.textContent = ''; }, 1500);
+    } catch (err) {
+      outEl.select();
+      document.execCommand('copy');
+    }
+  });
+
+  document.getElementById('btn-reset').addEventListener('click', () => {
+    grid = DEFAULT_ROWS.map(r => r.split(''));
+    renderAllCells();
+    renderPreviews();
+    renderOutput();
+  });
+
+  document.getElementById('btn-clear').addEventListener('click', () => {
+    grid = Array.from({ length: H }, () => Array(W).fill('.'));
+    renderAllCells();
+    renderPreviews();
+    renderOutput();
+  });
+
+  document.getElementById('btn-mirror').addEventListener('click', () => {
+    // Copy left half onto right half.
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W / 2; x++) {
+        grid[y][W - 1 - x] = grid[y][x];
+      }
+    }
+    renderAllCells();
+    renderPreviews();
+    renderOutput();
+  });
+
+  // Initial render
+  renderAllCells();
+  renderPreviews();
+  renderOutput();
+</script>
+
+</body>
+</html>

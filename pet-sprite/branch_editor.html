@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Branch icon pixel editor · Buddy Veee</title>
+<style>
+  :root {
+    --bg: #1e1e1e;
+    --panel: #252526;
+    --border: #333;
+    --text: #ddd;
+    --muted: #888;
+    --accent: #23a8f2;
+    --icon-guide: rgba(255, 209, 64, 0.9);
+  }
+  * { box-sizing: border-box; }
+  html, body { background: var(--bg); color: var(--text); font-family: -apple-system, "SF Pro Text", "Segoe UI", sans-serif; margin: 0; }
+  body { padding: 20px; }
+  h1 { font-size: 16px; margin: 0 0 4px; font-weight: 600; }
+  .sub { color: var(--muted); font-size: 12px; margin-bottom: 20px; }
+  .layout { display: grid; grid-template-columns: auto 320px; gap: 24px; align-items: start; }
+  .stage {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    display: inline-block;
+  }
+  canvas.grid {
+    display: block;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    cursor: crosshair;
+    background:
+      linear-gradient(45deg, #2a2a2a 25%, transparent 25%),
+      linear-gradient(-45deg, #2a2a2a 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #2a2a2a 75%),
+      linear-gradient(-45deg, transparent 75%, #2a2a2a 75%);
+    background-size: 16px 16px;
+    background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+    background-color: #232323;
+  }
+  .stage-row { display: flex; align-items: flex-start; gap: 24px; }
+  .previews { display: flex; flex-direction: column; gap: 16px; }
+  .preview-box {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    text-align: center;
+  }
+  .preview-box .label { font-size: 11px; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+  canvas.preview {
+    display: block;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    background: #191919;
+    margin: 0 auto;
+  }
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    font-size: 13px;
+  }
+  .group h2 { font-size: 11px; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; letter-spacing: 0.06em; font-weight: 600; }
+  .swatches { display: flex; gap: 8px; flex-wrap: wrap; }
+  .swatch {
+    width: 44px; height: 44px;
+    border-radius: 6px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; color: rgba(255,255,255,0.9);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+    position: relative;
+  }
+  .swatch.eraser {
+    background:
+      linear-gradient(45deg, #444 25%, transparent 25%),
+      linear-gradient(-45deg, #444 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #444 75%),
+      linear-gradient(-45deg, transparent 75%, #444 75%);
+    background-size: 10px 10px;
+    background-position: 0 0, 0 5px, 5px -5px, -5px 0px;
+    background-color: #2a2a2a;
+  }
+  .swatch.selected { border-color: #fff; box-shadow: 0 0 0 2px var(--accent); }
+  .theme-toggle { display: flex; gap: 8px; }
+  .theme-btn {
+    flex: 1; padding: 8px 10px;
+    background: #2d2d2d; border: 1px solid var(--border); border-radius: 5px;
+    color: var(--text); cursor: pointer; font-size: 12px;
+  }
+  .theme-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .theme-btn.green.active { background: #24bfa5; border-color: #24bfa5; }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  button.action {
+    flex: 1;
+    padding: 8px 10px;
+    background: #2d2d2d; border: 1px solid var(--border); border-radius: 5px;
+    color: var(--text); cursor: pointer; font-size: 12px;
+  }
+  button.action:hover { background: #3a3a3a; }
+  button.action.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.action.primary:hover { background: #1a8ac7; }
+  label.checkbox { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px; color: var(--muted); }
+  textarea.export {
+    width: 100%;
+    height: 280px;
+    background: #1a1a1a;
+    color: #d0d0d0;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px 10px;
+    font-family: "SF Mono", ui-monospace, Menlo, monospace;
+    font-size: 11px;
+    line-height: 1.4;
+    resize: vertical;
+    white-space: pre;
+  }
+  .hint { font-size: 11px; color: var(--muted); line-height: 1.4; }
+  kbd { background: #1a1a1a; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 3px; padding: 1px 5px; font-family: "SF Mono", ui-monospace, monospace; font-size: 10px; color: #ccc; }
+</style>
+</head>
+<body>
+
+<h1>Branch icon pixel editor</h1>
+<p class="sub">Edit the 18×16 branch icon area (cols 22–39, rows 6–21). The creature is a locked backdrop so you can see fit. <b>Single click / drag = erase.</b> <b>Double click (then drag) = add pixel</b> with the selected color. Export → paste back into <code>build_branch_themed.py</code>.</p>
+
+<div class="layout">
+  <div class="stage-row">
+    <div class="stage">
+      <canvas id="grid" class="grid" width="640" height="384"></canvas>
+    </div>
+    <div class="previews">
+      <div class="preview-box">
+        <div class="label">1× actual size</div>
+        <canvas id="preview1x" class="preview" width="40" height="24"></canvas>
+      </div>
+      <div class="preview-box">
+        <div class="label">4× preview</div>
+        <canvas id="preview4x" class="preview" width="160" height="96"></canvas>
+      </div>
+      <div class="preview-box">
+        <div class="label">Overlay against creature body</div>
+        <canvas id="previewOther" class="preview" width="320" height="192"></canvas>
+        <div class="hint" style="margin-top:6px" id="otherThemeLabel">Green theme mirror</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="group">
+      <h2>Theme</h2>
+      <div class="theme-toggle">
+        <button class="theme-btn blue active" data-theme="blue">VS Code blue</button>
+        <button class="theme-btn green" data-theme="green">Insiders green</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>Add-pixel color (used on double-click)</h2>
+      <div class="swatches" id="swatches">
+        <div class="swatch selected" data-ch="B" title="B — branch body (theme MID: blue in blue theme, teal in green theme)"><span>B</span></div>
+        <div class="swatch" data-ch="N" title="N — branch body, bright green (always Insiders green, regardless of theme)"><span>N</span></div>
+        <div class="swatch" data-ch="G" title="G — sparkle (bright neon green)"><span>G</span></div>
+      </div>
+      <div class="hint" style="margin-top:6px">
+        Single click / drag = erase · Double click (then drag) = add · <kbd>1</kbd> B · <kbd>2</kbd> N · <kbd>3</kbd> G · <kbd>Z</kbd> undo
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>Options</h2>
+      <label class="checkbox">
+        <input type="checkbox" id="toggleCreature" checked>
+        Show creature backdrop
+      </label>
+      <label class="checkbox">
+        <input type="checkbox" id="toggleGuide" checked>
+        Show 18×16 icon-area outline
+      </label>
+      <label class="checkbox">
+        <input type="checkbox" id="toggleGridLines" checked>
+        Show pixel grid lines
+      </label>
+    </div>
+
+    <div class="group">
+      <h2>Actions</h2>
+      <div class="btn-row">
+        <button class="action" id="btnUndo">Undo</button>
+        <button class="action" id="btnClear">Clear</button>
+        <button class="action" id="btnReset">Reset to default</button>
+      </div>
+      <div class="btn-row" style="margin-top:8px">
+        <button class="action primary" id="btnExport">Export as ICON_ROWS</button>
+        <button class="action" id="btnCopy">Copy</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>ICON_ROWS (paste into <code>build_branch_themed.py</code>)</h2>
+      <textarea id="exportBox" class="export" spellcheck="false" readonly></textarea>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---------- constants ----------
+const OUT_W = 40, OUT_H = 24;
+const CREATURE_W = 24;
+const ICON_X = 22, ICON_Y = 6;
+const ICON_W = 18, ICON_H = 16;
+
+const CELL = 16;                 // display size of one pixel in the editor grid
+const GRID_W = OUT_W * CELL;     // 640
+const GRID_H = OUT_H * CELL;     // 384
+
+const BG = null;                 // transparent
+const SPARK = [0, 255, 97, 255];
+// Bright green branch body — always the Insiders green MID regardless of
+// the currently-selected theme. Lets you mix a blue branch and a green
+// branch in the same icon.
+const GREEN_BRANCH = [36, 191, 165, 255];
+
+const PALETTES = {
+  blue:  { LIGHT: [35,168,242,255], MID: [0,119,184,255], DEEP: [0, 78,124,255], PUPIL: [25,26,27,255] },
+  green: { LIGHT: [36,191,165,255], MID: [0,154,124,255], DEEP: [0,100, 81,255], PUPIL: [25,26,27,255] },
+};
+
+const CREATURE_ROWS = [
+  "........................",
+  "........................",
+  "......DD........MM......",
+  "......DD........MM......",
+  "....DD..DD....MM..MM....",
+  "....DD..DD....MM..MM....",
+  "..........DDMM..........",
+  "..........DDMM..........",
+  "........DDMMLLLL........",
+  "........DDMMLLLL........",
+  "......DDMMLLLLLLLL......",
+  "......DDMMLLLLLLLL......",
+  "....DDMMLLLLLLLLLLLL....",
+  "....DDMMLLLLLLLLLLLL....",
+  "..DDMMLLLLLLLLLLLLLLLL..",
+  "..DDMMLLLLLLLLLLLLLLLL..",
+  "DDMMMMLLLL##LLLL##LLLLLL",
+  "DDMMMMLLLL##LLLL##LLLLLL",
+  "DDMMMMLLLL##LLLL##LLLLLL",
+  "DDMMMMLLLL##LLLL##LLLLLL",
+  "DDMMMMLLLLLLLLLLLLLLLLLL",
+  "DDMMMMLLLLLLLLLLLLLLLLLL",
+  "..DDDDMMMMLLLLLLLLLLLL..",
+  "..DDDDMMMMLLLLLLLLLLLL..",
+];
+
+const DEFAULT_ICON_ROWS = [
+  "....GG............",
+  "....GG............",
+  "......BBBB....BBBB",
+  "......BBBB....BBBB",
+  "........BBBBBBBB..",
+  "........BBBBBBBB..",
+  "..........BBBB....",
+  "..........BBBB....",
+  "........BBBB......",
+  "........BBBB......",
+  "......BBBB......GG",
+  "......BBBB......GG",
+  "....BBBBBBBB..GG..",
+  "....BBBBBBBB..GG..",
+  "..BBBB....BBBB....",
+  "..BBBB....BBBB....",
+];
+
+const STORAGE_KEY = "branch-icon-editor-v1";
+
+// ---------- state ----------
+let iconRows = loadFromStorage() || cloneRows(DEFAULT_ICON_ROWS);
+let history = [];
+let theme = "blue";
+let currentCh = "B";     // selected add-pixel color (B or G)
+let showCreature = true;
+let showGuide = true;
+let showGridLines = true;
+let painting = false;
+let paintingCh = null;    // char being applied for the current drag ('.' for erase, 'B'/'G' for add)
+
+// ---------- helpers ----------
+function cloneRows(rows) { return rows.map(r => r); }
+function saveHistory() {
+  history.push(cloneRows(iconRows));
+  if (history.length > 200) history.shift();
+}
+function loadFromStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const arr = JSON.parse(raw);
+    if (Array.isArray(arr) && arr.length === ICON_H && arr.every(r => typeof r === "string" && r.length === ICON_W)) {
+      return arr;
+    }
+  } catch (e) {}
+  return null;
+}
+function persist() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(iconRows)); } catch (e) {}
+}
+function rgbaStr(c) { return `rgba(${c[0]},${c[1]},${c[2]},${c[3]/255})`; }
+
+// ---------- rendering ----------
+const grid = document.getElementById("grid");
+const gctx = grid.getContext("2d");
+const p1 = document.getElementById("preview1x").getContext("2d");
+const p4 = document.getElementById("preview4x").getContext("2d");
+const pOther = document.getElementById("previewOther").getContext("2d");
+
+function buildSpritePixels(themeName) {
+  // returns 2D array [y][x] of rgba tuple or null
+  const pal = PALETTES[themeName];
+  const px = [];
+  for (let y = 0; y < OUT_H; y++) {
+    const row = new Array(OUT_W).fill(null);
+    // creature (cols 0..23)
+    const cr = CREATURE_ROWS[y];
+    for (let x = 0; x < CREATURE_W; x++) {
+      const ch = cr[x];
+      if (ch === "L") row[x] = pal.LIGHT;
+      else if (ch === "M") row[x] = pal.MID;
+      else if (ch === "D") row[x] = pal.DEEP;
+      else if (ch === "#") row[x] = pal.PUPIL;
+    }
+    // icon (cols 22..39, rows 6..21)
+    if (y >= ICON_Y && y < ICON_Y + ICON_H) {
+      const ir = iconRows[y - ICON_Y];
+      for (let ix = 0; ix < ICON_W; ix++) {
+        const ch = ir[ix];
+        const sx = ICON_X + ix;
+        if (sx >= OUT_W) continue;
+        if (ch === "B") row[sx] = pal.MID;
+        else if (ch === "N") row[sx] = GREEN_BRANCH;
+        else if (ch === "G") row[sx] = SPARK;
+        else if (ch === ".") { /* transparent — icon area erases anything under it? no, don't overwrite creature */ }
+      }
+    }
+    px.push(row);
+  }
+  return px;
+}
+
+function drawGrid() {
+  gctx.clearRect(0, 0, GRID_W, GRID_H);
+  const pixels = buildSpritePixels(theme);
+  for (let y = 0; y < OUT_H; y++) {
+    for (let x = 0; x < OUT_W; x++) {
+      const inIcon = (x >= ICON_X && x < ICON_X + ICON_W && y >= ICON_Y && y < ICON_Y + ICON_H);
+      const isCreatureOnly = x < CREATURE_W && !inIcon;
+
+      // If "hide creature" is on and this pixel is creature-only, skip.
+      if (!showCreature && isCreatureOnly) continue;
+
+      const c = pixels[y][x];
+      // When creature is hidden, we also want to hide creature colors that sit inside icon area
+      if (!showCreature && inIcon && c) {
+        // Only draw if it's an icon pixel (B, N, or G). Determine that from iconRows:
+        const ch = iconRows[y - ICON_Y][x - ICON_X];
+        if (ch !== "B" && ch !== "N" && ch !== "G") continue;
+      }
+
+      if (c) {
+        gctx.fillStyle = rgbaStr(c);
+        gctx.fillRect(x * CELL, y * CELL, CELL, CELL);
+      }
+    }
+  }
+
+  // Dim creature area (outside icon zone) so eye is drawn to icon area
+  gctx.fillStyle = "rgba(0,0,0,0.15)";
+  // Cover everything OUTSIDE the icon rect
+  gctx.fillRect(0, 0, GRID_W, ICON_Y * CELL);                                              // top strip
+  gctx.fillRect(0, (ICON_Y + ICON_H) * CELL, GRID_W, GRID_H - (ICON_Y + ICON_H) * CELL);   // bottom strip
+  gctx.fillRect(0, ICON_Y * CELL, ICON_X * CELL, ICON_H * CELL);                           // left strip
+  gctx.fillRect((ICON_X + ICON_W) * CELL, ICON_Y * CELL, GRID_W - (ICON_X + ICON_W) * CELL, ICON_H * CELL); // right (if any)
+
+  // grid lines
+  if (showGridLines) {
+    gctx.strokeStyle = "rgba(255,255,255,0.06)";
+    gctx.lineWidth = 1;
+    for (let x = 0; x <= OUT_W; x++) {
+      gctx.beginPath();
+      gctx.moveTo(x * CELL + 0.5, 0);
+      gctx.lineTo(x * CELL + 0.5, GRID_H);
+      gctx.stroke();
+    }
+    for (let y = 0; y <= OUT_H; y++) {
+      gctx.beginPath();
+      gctx.moveTo(0, y * CELL + 0.5);
+      gctx.lineTo(GRID_W, y * CELL + 0.5);
+      gctx.stroke();
+    }
+    // chunky-unit lines every 2px (creature is drawn 2x2 chunky)
+    gctx.strokeStyle = "rgba(255,255,255,0.12)";
+    for (let x = 0; x <= OUT_W; x += 2) {
+      gctx.beginPath();
+      gctx.moveTo(x * CELL + 0.5, 0);
+      gctx.lineTo(x * CELL + 0.5, GRID_H);
+      gctx.stroke();
+    }
+    for (let y = 0; y <= OUT_H; y += 2) {
+      gctx.beginPath();
+      gctx.moveTo(0, y * CELL + 0.5);
+      gctx.lineTo(GRID_W, y * CELL + 0.5);
+      gctx.stroke();
+    }
+  }
+
+  // icon area outline
+  if (showGuide) {
+    gctx.strokeStyle = "var(--icon-guide)";
+    gctx.strokeStyle = "rgba(255,209,64,0.9)";
+    gctx.lineWidth = 2;
+    gctx.strokeRect(ICON_X * CELL + 1, ICON_Y * CELL + 1, ICON_W * CELL - 2, ICON_H * CELL - 2);
+  }
+}
+
+function drawPreviews() {
+  // 1x
+  drawSpriteToCtx(p1, theme, 1);
+  // 4x
+  drawSpriteToCtx(p4, theme, 4);
+  // other theme
+  const otherTheme = theme === "blue" ? "green" : "blue";
+  drawSpriteToCtx(pOther, otherTheme, 8);
+  document.getElementById("otherThemeLabel").textContent =
+    otherTheme === "blue" ? "VS Code blue mirror" : "Insiders green mirror";
+}
+
+function drawSpriteToCtx(ctx, themeName, scale) {
+  const pixels = buildSpritePixels(themeName);
+  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  for (let y = 0; y < OUT_H; y++) {
+    for (let x = 0; x < OUT_W; x++) {
+      const c = pixels[y][x];
+      if (c) {
+        ctx.fillStyle = rgbaStr(c);
+        ctx.fillRect(x * scale, y * scale, scale, scale);
+      }
+    }
+  }
+}
+
+function render() {
+  drawGrid();
+  drawPreviews();
+  updateExport();
+}
+
+function updateExport() {
+  const lines = iconRows.map(r => `    ${JSON.stringify(r)},`);
+  document.getElementById("exportBox").value =
+    "ICON_ROWS = [\n" + lines.join("\n") + "\n]";
+}
+
+// ---------- input ----------
+function xyToIcon(clientX, clientY) {
+  const rect = grid.getBoundingClientRect();
+  const px = clientX - rect.left;
+  const py = clientY - rect.top;
+  const gx = Math.floor(px / (rect.width / OUT_W));
+  const gy = Math.floor(py / (rect.height / OUT_H));
+  if (gx < ICON_X || gx >= ICON_X + ICON_W) return null;
+  if (gy < ICON_Y || gy >= ICON_Y + ICON_H) return null;
+  return { ix: gx - ICON_X, iy: gy - ICON_Y };
+}
+
+function paintAt(clientX, clientY, ch) {
+  const p = xyToIcon(clientX, clientY);
+  if (!p) return false;
+  const row = iconRows[p.iy];
+  if (row[p.ix] === ch) return false;
+  iconRows[p.iy] = row.substring(0, p.ix) + ch + row.substring(p.ix + 1);
+  return true;
+}
+
+grid.addEventListener("contextmenu", e => e.preventDefault());
+
+// Interaction:
+//   mousedown  -> ERASE at that cell + start erase-drag
+//   dblclick   -> ADD (with currentCh) at that cell + start add-drag
+//   right-click also ADDs (handy alternate)
+grid.addEventListener("mousedown", e => {
+  if (e.detail >= 2) return;               // let dblclick handler own the second click
+  const ch = (e.button === 2) ? currentCh : ".";
+  paintingCh = ch;
+  saveHistory();
+  if (paintAt(e.clientX, e.clientY, ch)) {
+    persist(); render();
+  }
+  painting = true;
+  e.preventDefault();
+});
+grid.addEventListener("dblclick", e => {
+  paintingCh = currentCh;
+  saveHistory();
+  if (paintAt(e.clientX, e.clientY, currentCh)) {
+    persist(); render();
+  }
+  painting = true;                         // continue as add-drag until mouseup
+  e.preventDefault();
+});
+window.addEventListener("mousemove", e => {
+  if (!painting) return;
+  if (paintAt(e.clientX, e.clientY, paintingCh)) {
+    persist(); render();
+  }
+});
+window.addEventListener("mouseup", () => { painting = false; paintingCh = null; });
+
+// swatches
+document.querySelectorAll(".swatch").forEach(sw => {
+  const ch = sw.dataset.ch;
+  if (ch === "B") sw.style.background = rgbaStr(PALETTES[theme].MID);
+  if (ch === "N") sw.style.background = rgbaStr(GREEN_BRANCH);
+  if (ch === "G") sw.style.background = rgbaStr(SPARK);
+  sw.addEventListener("click", () => {
+    currentCh = ch;
+    document.querySelectorAll(".swatch").forEach(s => s.classList.remove("selected"));
+    sw.classList.add("selected");
+  });
+});
+
+function refreshSwatchColors() {
+  document.querySelectorAll(".swatch").forEach(sw => {
+    if (sw.dataset.ch === "B") sw.style.background = rgbaStr(PALETTES[theme].MID);
+    if (sw.dataset.ch === "N") sw.style.background = rgbaStr(GREEN_BRANCH);
+    if (sw.dataset.ch === "G") sw.style.background = rgbaStr(SPARK);
+  });
+}
+
+// theme
+document.querySelectorAll(".theme-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    theme = btn.dataset.theme;
+    document.querySelectorAll(".theme-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    refreshSwatchColors();
+    render();
+  });
+});
+
+// options
+document.getElementById("toggleCreature").addEventListener("change", e => { showCreature = e.target.checked; render(); });
+document.getElementById("toggleGuide").addEventListener("change", e => { showGuide = e.target.checked; render(); });
+document.getElementById("toggleGridLines").addEventListener("change", e => { showGridLines = e.target.checked; render(); });
+
+// actions
+document.getElementById("btnUndo").addEventListener("click", undo);
+document.getElementById("btnClear").addEventListener("click", () => {
+  saveHistory();
+  iconRows = Array(ICON_H).fill(".".repeat(ICON_W));
+  persist(); render();
+});
+document.getElementById("btnReset").addEventListener("click", () => {
+  saveHistory();
+  iconRows = cloneRows(DEFAULT_ICON_ROWS);
+  persist(); render();
+});
+document.getElementById("btnExport").addEventListener("click", () => {
+  updateExport();
+  document.getElementById("exportBox").select();
+});
+document.getElementById("btnCopy").addEventListener("click", async () => {
+  updateExport();
+  const txt = document.getElementById("exportBox").value;
+  try {
+    await navigator.clipboard.writeText(txt);
+    const b = document.getElementById("btnCopy");
+    const old = b.textContent;
+    b.textContent = "Copied!";
+    setTimeout(() => { b.textContent = old; }, 1200);
+  } catch (e) {
+    document.getElementById("exportBox").select();
+    document.execCommand("copy");
+  }
+});
+
+function undo() {
+  if (!history.length) return;
+  iconRows = history.pop();
+  persist(); render();
+}
+
+// keys
+window.addEventListener("keydown", e => {
+  if (e.target.tagName === "TEXTAREA" || e.target.tagName === "INPUT") return;
+  if (e.key === "z" || e.key === "Z") { undo(); e.preventDefault(); }
+  else if (e.key === "1") selectCh("B");
+  else if (e.key === "2") selectCh("N");
+  else if (e.key === "3") selectCh("G");
+});
+function selectCh(ch) {
+  currentCh = ch;
+  document.querySelectorAll(".swatch").forEach(s => {
+    s.classList.toggle("selected", s.dataset.ch === ch);
+  });
+}
+
+// initial render
+refreshSwatchColors();
+render();
+</script>
+</body>
+</html>

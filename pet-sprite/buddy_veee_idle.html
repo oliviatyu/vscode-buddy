@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Buddy Veee · Idle</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: #d0d0d0;
+      font-family: monospace;
+      gap: 12px;
+    }
+
+    .screen {
+      width: 240px;
+      height: 240px;
+      background: transparent;
+      border: 2px solid #888;
+      overflow: hidden;
+    }
+
+    /* 24 × 24 source, rendered as a crisp 240 × 240 pixelated block.
+       The breathing motion (pixel-step, borrowed from sleep-1.gif) is
+       baked directly into idle-breathing.gif — no CSS motion here. */
+    .buddy {
+      width: 240px;
+      height: 240px;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      display: block;
+    }
+
+    /* Segmented toggle for switching between the VS Code (blue) and
+       VS Code Insiders (green) color variants. */
+    .toggle {
+      display: inline-flex;
+      background: #e5e5e5;
+      border: 1px solid #b8b8b8;
+      border-radius: 999px;
+      padding: 3px;
+      gap: 2px;
+    }
+    .toggle button {
+      appearance: none;
+      background: transparent;
+      border: 0;
+      padding: 6px 14px;
+      font: inherit;
+      font-size: 12px;
+      color: #555;
+      border-radius: 999px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 120ms ease, color 120ms ease;
+    }
+    .toggle button:hover:not(.is-active) {
+      color: #222;
+    }
+    .toggle button.is-active {
+      color: #fff;
+    }
+    .toggle button[data-variant="blue"].is-active  { background: #0077b8; }
+    .toggle button[data-variant="green"].is-active { background: #009a7c; }
+    .toggle .swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      display: inline-block;
+    }
+    .toggle button[data-variant="blue"]  .swatch { background: #23a8f2; }
+    .toggle button[data-variant="green"] .swatch { background: #24bfa5; }
+
+    p {
+      font-size: 13px;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="screen">
+    <img class="buddy" id="buddy" src="assets/idle-breathing.gif" alt="Buddy Veee idle animation">
+  </div>
+
+  <div class="toggle" role="tablist" aria-label="Color variant">
+    <button type="button" data-variant="blue"
+            data-src="assets/idle-breathing.gif"
+            class="is-active" role="tab" aria-selected="true">
+      <span class="swatch" aria-hidden="true"></span>VS Code
+    </button>
+    <button type="button" data-variant="green"
+            data-src="assets/idle-breathing-green.gif"
+            role="tab" aria-selected="false">
+      <span class="swatch" aria-hidden="true"></span>Insiders
+    </button>
+  </div>
+
+  <p>buddy_veee_idle · 24 × 24 px</p>
+
+  <script>
+    (function () {
+      const img = document.getElementById('buddy');
+      const buttons = document.querySelectorAll('.toggle button');
+      buttons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          if (btn.classList.contains('is-active')) return;
+          buttons.forEach((b) => {
+            b.classList.remove('is-active');
+            b.setAttribute('aria-selected', 'false');
+          });
+          btn.classList.add('is-active');
+          btn.setAttribute('aria-selected', 'true');
+          // Cache-bust the src so the GIF restarts from frame 0 on switch,
+          // otherwise browsers keep playing at the current frame index.
+          img.src = btn.dataset.src + '?t=' + Date.now();
+        });
+      });
+    })();
+  </script>
+
+</body>
+</html>

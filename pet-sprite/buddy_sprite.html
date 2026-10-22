@@ -1,0 +1,1873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Buddy Sprite · States</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
+      background: #000;
+      color: #ddd;
+      font-family: monospace;
+      gap: 20px;
+      padding: 24px 16px 40px;
+    }
+
+     /* Top tab bar — fixed to the viewport. JS publishes its rendered height
+       so wrapped rows always reserve enough space in the document flow. */
+    .tabs {
+      position: fixed;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 4px;
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 999px;
+      padding: 4px;
+      max-width: 720px;
+      z-index: 10;
+    }
+    .tabs button {
+      appearance: none;
+      background: transparent;
+      border: 0;
+      padding: 6px 12px;
+      font: inherit;
+      font-size: 12px;
+      color: #aaa;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: background 120ms ease, color 120ms ease;
+      text-transform: lowercase;
+      letter-spacing: 0.02em;
+    }
+    .tabs button:hover:not(.is-active) {
+      color: #fff;
+    }
+    .tabs button.is-active {
+      background: #0077b8;
+      color: #fff;
+    }
+
+    .screen {
+      /* Default sized for a 24x24 sprite at 10x scale. States with props
+         (coffee, sing, branch, speak) grow the screen via JS so the
+         buddy's 24x24 sub-region always renders at a full 240x240 —
+         the extras add area, they never shrink the buddy. */
+      width: 240px;
+      height: 240px;
+      background: transparent;
+      border: 2px solid #444;
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+    }
+    .screen[hidden],
+    .caption[hidden],
+    .export-btn[hidden] {
+      display: none;
+    }
+
+    .buddy {
+      /* Rendered at exactly 10px per source pixel so the buddy is always
+         24 source px × 10 = 240px — never shrunk by contain. width/height
+         are set from JS based on the sprite's natural dimensions so the
+         .screen (and the buddy inside it) always match the sprite exactly. */
+      width: 240px;
+      height: 240px;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      display: block;
+    }
+    .buddy.is-hidden { display: none; }
+
+    /* Placeholder shown when a state's GIF hasn't been added yet. */
+    .placeholder {
+      position: absolute;
+      inset: 0;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      color: #888;
+      font-size: 11px;
+      text-align: center;
+      padding: 16px;
+      background: repeating-linear-gradient(
+        45deg,
+        #1a1a1a 0 8px,
+        #141414 8px 16px
+      );
+    }
+    .placeholder.is-visible { display: flex; }
+    .placeholder .label {
+      color: #ddd;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .placeholder .path {
+      color: #888;
+      font-size: 10px;
+      word-break: break-all;
+    }
+
+    /* Color-variant toggle (kept from buddy_veee_idle.html — only meaningful
+       for states with a green companion asset). */
+    .toggle {
+      display: inline-flex;
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 999px;
+      padding: 3px;
+      gap: 2px;
+    }
+    .toggle[hidden] { display: none; }
+    .toggle button {
+      appearance: none;
+      background: transparent;
+      border: 0;
+      padding: 6px 14px;
+      font: inherit;
+      font-size: 12px;
+      color: #aaa;
+      border-radius: 999px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 120ms ease, color 120ms ease;
+    }
+    .toggle button:hover:not(.is-active) {
+      color: #fff;
+    }
+    .toggle button.is-active {
+      color: #fff;
+    }
+    .toggle button[data-variant="blue"].is-active  { background: #0077b8; }
+    .toggle button[data-variant="green"].is-active { background: #009a7c; }
+    .toggle .swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      display: inline-block;
+    }
+    .toggle button[data-variant="blue"]  .swatch { background: #23a8f2; }
+    .toggle button[data-variant="green"] .swatch { background: #24bfa5; }
+
+    /* Export button — downloads the currently displayed GIF (already
+       authored with a transparent background) using the current state +
+       variant as the filename. */
+    .export-btn {
+      appearance: none;
+      background: #1a1a1a;
+      border: 1px solid #333;
+      color: #ddd;
+      font: inherit;
+      font-size: 12px;
+      padding: 8px 16px;
+      border-radius: 999px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+    }
+    .export-btn:hover:not(:disabled) {
+      background: #222;
+      border-color: #555;
+      color: #fff;
+    }
+    .export-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .export-btn svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    p {
+      font-size: 13px;
+      color: #888;
+    }
+    .caption {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+    .caption .state-name {
+      font-size: 14px;
+      color: #eee;
+      text-transform: lowercase;
+      letter-spacing: 0.06em;
+    }
+
+    /* ─────────────────────────────────────────────────────────────
+       Two-column layout
+       ─────────────────────────────────────────────────────────────
+       Left column: the live sprite viewer (default state).
+       Right column: the pixel editor. On narrow viewports the
+       columns stack. */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+      align-items: start;
+      justify-items: center;
+      width: 100%;
+      max-width: 1100px;
+      padding: 0 8px;
+      margin-top: calc(var(--tabs-height, 44px) + 12px);
+    }
+    .col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      width: 100%;
+    }
+    .col-title {
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #666;
+    }
+    @media (max-width: 780px) {
+      .main-grid { grid-template-columns: 1fr; }
+    }
+
+    /* Hide the "edit colors" pixel-editor column for now.
+       Keep markup + JS intact so it can be re-enabled by removing
+       this rule (and the single-column override below). */
+    .main-grid { grid-template-columns: 1fr; max-width: 640px; }
+    .col--right { display: none; }
+    .col--left .col-title { display: none; }
+
+    /* Small "edited" badge that appears on the left screen once a
+       color edit has been applied from the editor. */
+    .edited-badge {
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      background: rgba(0, 119, 184, 0.9);
+      color: #fff;
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 3px 6px;
+      border-radius: 3px;
+      display: none;
+    }
+    .screen.is-edited .edited-badge { display: block; }
+
+    /* ─────────────────────────────────────────────────────────────
+       Pixel editor
+       ─────────────────────────────────────────────────────────────
+       A 24x24 canvas backing displayed at 240x240 with pixelated
+       scaling, mirrored beside the live sprite. Click a pixel to
+       repaint it with the currently selected palette color. */
+    .editor {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      padding: 16px;
+      background: #0d0d0d;
+      border: 1px solid #222;
+      border-radius: 12px;
+      width: 100%;
+      /* Bumped from 420 to 500 so the largest sprite (coffee / branch =
+         400px wide at 10x) fits inside the editor with its 16px padding
+         on each side. The .editor-canvas-wrap itself grows via JS to
+         match the current sprite; this only sizes the outer chrome. */
+      max-width: 500px;
+    }
+    .editor-title {
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #888;
+    }
+    .editor-canvas-wrap {
+      position: relative;
+      /* Default sized for a 24x24 sprite at 10x scale. Grown via JS
+         (resizeEditorToSprite) so the editor is always the same size
+         as the left screen — no more shrinking sprites into 240×240. */
+      width: 240px;
+      height: 240px;
+      /* Checkerboard so transparent pixels are visible. */
+      background-image:
+        linear-gradient(45deg, #1a1a1a 25%, transparent 25%),
+        linear-gradient(-45deg, #1a1a1a 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #1a1a1a 75%),
+        linear-gradient(-45deg, transparent 75%, #1a1a1a 75%);
+      background-size: 10px 10px;
+      background-position: 0 0, 0 5px, 5px -5px, -5px 0;
+      background-color: #0f0f0f;
+      border: 1px solid #2a2a2a;
+      border-radius: 4px;
+      overflow: hidden;
+      flex: 0 0 auto;
+    }
+    .editor-canvas {
+      position: absolute;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      display: block;
+      cursor: crosshair;
+      /* left / top / width / height set via JS to match the sprite's
+         native dimensions and keep it centered in the wrap. */
+    }
+    /* Grid overlay drawn as a repeating linear-gradient so it stays crisp. */
+    .editor-grid {
+      position: absolute;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 120ms ease;
+      background-image:
+        linear-gradient(to right, rgba(255,255,255,0.06) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255,255,255,0.06) 1px, transparent 1px);
+      /* left / top / width / height / background-size set via JS. */
+    }
+    .editor-canvas-wrap.show-grid .editor-grid { opacity: 1; }
+    .editor-hover {
+      position: absolute;
+      pointer-events: none;
+      border: 1px solid #fff;
+      box-shadow: 0 0 0 1px #000 inset;
+      display: none;
+      /* width / height set via JS to match the current pixel size. */
+    }
+    .editor-canvas-wrap:hover .editor-hover { display: block; }
+
+    /* Palette swatches */
+    .palette {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .palette-row {
+      display: flex;
+      gap: 6px;
+    }
+    .palette-label {
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #666;
+    }
+    .palette button {
+      appearance: none;
+      width: 34px;
+      height: 34px;
+      border-radius: 6px;
+      border: 2px solid #333;
+      cursor: pointer;
+      padding: 0;
+      transition: transform 100ms ease, border-color 120ms ease;
+      position: relative;
+    }
+    .palette button:hover { transform: translateY(-1px); border-color: #666; }
+    .palette button.is-active {
+      border-color: #fff;
+      transform: translateY(-1px);
+    }
+    /* Only the palette matching the currently selected variant
+       (VS Code = blue, Insiders = green) is visible. Toggled via
+       [data-active-variant] on the .palette element. */
+    .palette[data-active-variant="blue"]  .palette-row[data-group="green"],
+    .palette[data-active-variant="green"] .palette-row[data-group="blue"] {
+      display: none;
+    }
+    .palette button.is-active::after {
+      content: '';
+      position: absolute;
+      inset: -5px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.4);
+      pointer-events: none;
+    }
+    .palette .tool {
+      background: #1a1a1a;
+      color: #ccc;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .palette .tool.eraser {
+      /* Checkerboard indicating transparency. */
+      background-image:
+        linear-gradient(45deg, #333 25%, transparent 25%),
+        linear-gradient(-45deg, #333 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #333 75%),
+        linear-gradient(-45deg, transparent 75%, #333 75%);
+      background-size: 8px 8px;
+      background-position: 0 0, 0 4px, 4px -4px, -4px 0;
+      background-color: #1a1a1a;
+    }
+
+    .editor-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+    }
+    .editor-actions button {
+      appearance: none;
+      background: #1a1a1a;
+      border: 1px solid #333;
+      color: #ddd;
+      font: inherit;
+      font-size: 11px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+      text-transform: lowercase;
+      letter-spacing: 0.03em;
+    }
+    .editor-actions button:hover {
+      background: #222;
+      border-color: #555;
+      color: #fff;
+    }
+    .editor-actions button.is-active {
+      background: #0077b8;
+      border-color: #0077b8;
+      color: #fff;
+    }
+    .editor-actions button.primary {
+      background: #0077b8;
+      border-color: #0077b8;
+      color: #fff;
+    }
+    .editor-actions button.primary:hover {
+      background: #0088cc;
+      border-color: #0088cc;
+      color: #fff;
+    }
+    .editor-hint {
+      font-size: 11px;
+      color: #666;
+      text-align: center;
+    }
+
+    .eat-explorations {
+      width: min(100%, 380px);
+    }
+    .eat-explorations[hidden] { display: none; }
+    .eat-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+    .eat-card {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 12px;
+      background: #0d0d0d;
+      border: 1px solid #292929;
+      border-radius: 12px;
+    }
+    .eat-card:not(:first-child) { display: none; }
+    .eat-card.is-recommended { border-color: #0077b8; }
+    .eat-stage {
+      position: relative;
+      width: 340px;
+      height: 240px;
+      overflow: hidden;
+      background:
+        linear-gradient(45deg, #151515 25%, transparent 25%),
+        linear-gradient(-45deg, #151515 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #151515 75%),
+        linear-gradient(-45deg, transparent 75%, #151515 75%),
+        #090909;
+      background-size: 12px 12px;
+      background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+      border-radius: 7px;
+      outline: 1px solid transparent;
+      transition: outline-color 120ms ease, background-color 120ms ease;
+    }
+    .eat-stage.is-drop-target {
+      outline-color: #23a8f2;
+      background-color: rgba(35, 168, 242, 0.12);
+    }
+    .eat-preview {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      pointer-events: none;
+      transform-origin: 120px 220px;
+    }
+    .eat-preview.is-figma-idle {
+      width: 240px;
+      height: 240px;
+      object-fit: fill;
+    }
+    .bug-token {
+      position: absolute;
+      right: 10px;
+      bottom: 10px;
+      width: 36px;
+      height: 36px;
+      display: grid;
+      place-items: center;
+      appearance: none;
+      border: 1px solid #444;
+      border-radius: 6px;
+      background: #1a1a1a;
+      color: #c5c5c5;
+      cursor: grab;
+      touch-action: none;
+      z-index: 2;
+    }
+    .bug-token:hover {
+      color: #fff;
+      border-color: #777;
+    }
+    .bug-token:focus-visible {
+      outline: 2px solid #23a8f2;
+      outline-offset: 2px;
+    }
+    .bug-token.is-dragging {
+      cursor: grabbing;
+      color: #fff;
+      border-color: #23a8f2;
+      z-index: 3;
+    }
+    .bug-token svg {
+      width: 20px;
+      height: 20px;
+      pointer-events: none;
+    }
+    .eat-card.is-feeding .bug-token {
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- State tabs -->
+  <div class="tabs" role="tablist" aria-label="Buddy state">
+    <button type="button" role="tab" data-state="idle"     class="is-active" aria-selected="true">idle</button>
+    <button type="button" role="tab" data-state="hiding"   aria-selected="false">hiding</button>
+    <button type="button" role="tab" data-state="smile"    aria-selected="false">smile</button>
+    <button type="button" role="tab" data-state="eat"      aria-selected="false">eat</button>
+    <button type="button" role="tab" data-state="sing"     aria-selected="false">sing</button>
+    <button type="button" role="tab" data-state="coffee"   aria-selected="false">coffee</button>
+    <button type="button" role="tab" data-state="sleep"    aria-selected="false">sleep</button>
+    <button type="button" role="tab" data-state="sleep-bubble" aria-selected="false">sleep bubble</button>
+    <button type="button" role="tab" data-state="complete" aria-selected="false">complete</button>
+    <button type="button" role="tab" data-state="branch"   aria-selected="false">branch</button>
+    <button type="button" role="tab" data-state="cool"     aria-selected="false">cool</button>
+    <button type="button" role="tab" data-state="speak"    aria-selected="false">speak</button>
+    <button type="button" role="tab" data-state="speechless" aria-selected="false">speechless</button>
+    <button type="button" role="tab" data-state="worry"    aria-selected="false">worry</button>
+    <button type="button" role="tab" data-state="headphone" aria-selected="false">headphone</button>
+    <button type="button" role="tab" data-state="search"   aria-selected="false">search</button>
+    <button type="button" role="tab" data-state="working"  aria-selected="false">working</button>
+    <button type="button" role="tab" data-state="typing"   aria-selected="false">typing</button>
+    <button type="button" role="tab" data-state="press-button" aria-selected="false">press button</button>
+    <button type="button" role="tab" data-state="tool"     aria-selected="false">tool</button>
+    <button type="button" role="tab" data-state="walking"  aria-selected="false">walking</button>
+    <button type="button" role="tab" data-state="failed"   aria-selected="false">failed</button>
+    <button type="button" role="tab" data-state="clapping" aria-selected="false">clapping</button>
+    <button type="button" role="tab" data-state="goodbye"  aria-selected="false">goodbye</button>
+    <button type="button" role="tab" data-state="icon"     aria-selected="false">icon</button>
+    <button type="button" role="tab" data-state="rainbow"  aria-selected="false">rainbow</button>
+    <button type="button" role="tab" data-state="heart-rainbow" aria-selected="false">heart-rainbow</button>
+  </div>
+
+  <div class="main-grid">
+    <!-- Left column: live sprite viewer -->
+    <div class="col col--left">
+      <div class="col-title">default</div>
+
+      <section class="eat-explorations" id="eat-explorations" aria-label="Eating motion explorations" hidden>
+        <div class="eat-grid">
+          <article class="eat-card is-recommended">
+            <div class="eat-stage">
+              <img class="eat-preview is-figma-idle" data-eat-option="classic" src="assets/eat-figma-before.svg" alt="Figma-authored Buddy before eating">
+              <button class="bug-token" type="button" aria-label="Drag the bug icon to feed Buddy">
+                <svg viewBox="0 0 16 16" aria-hidden="true" fill="currentColor"><path d="M14.5 8H13V6C13 5.63 12.898 5.283 12.722 4.985L13.853 3.854C14.048 3.659 14.048 3.342 13.853 3.147C13.658 2.952 13.341 2.952 13.146 3.147L12.015 4.278C11.717 4.102 11.37 4 11 4C11 2.346 9.654 1 8 1C6.346 1 5 2.346 5 4C4.63 4 4.283 4.102 3.985 4.278L2.854 3.147C2.659 2.952 2.342 2.952 2.147 3.147C1.952 3.342 1.952 3.659 2.147 3.854L3.278 4.985C3.102 5.283 3 5.63 3 6V8H1.5C1.224 8 1 8.224 1 8.5C1 8.776 1.224 9 1.5 9H3C3 10.199 3.424 11.3 4.13 12.163L2.396 13.897C2.201 14.092 2.201 14.409 2.396 14.604C2.494 14.702 2.622 14.75 2.75 14.75C2.878 14.75 3.006 14.701 3.104 14.604L4.838 12.87C5.7 13.576 6.802 14 8.001 14C9.2 14 10.301 13.576 11.164 12.87L12.898 14.604C12.996 14.702 13.124 14.75 13.252 14.75C13.38 14.75 13.508 14.701 13.606 14.604C13.801 14.409 13.801 14.092 13.606 13.897L11.872 12.163C12.578 11.301 13.002 10.199 13.002 9H14.502C14.778 9 15.002 8.776 15.002 8.5C15.002 8.224 14.778 8 14.502 8H14.5ZM8 2C9.103 2 10 2.897 10 4H6C6 2.897 6.897 2 8 2ZM12 9C12 11.206 10.206 13 8 13C5.794 13 4 11.206 4 9V6C4 5.449 4.448 5 5 5H11C11.552 5 12 5.449 12 6V9Z"/></svg>
+              </button>
+            </div>
+          </article>
+          <article class="eat-card">
+            <div class="eat-stage">
+              <img class="eat-preview is-figma-idle" data-eat-option="side" src="assets/eat-figma-before.svg" alt="Buddy waiting to eat with a side-view Pac-Man motion">
+              <button class="bug-token" type="button" aria-label="Drag the bug icon to feed Buddy">
+                <svg viewBox="0 0 16 16" aria-hidden="true" fill="currentColor"><path d="M14.5 8H13V6C13 5.63 12.898 5.283 12.722 4.985L13.853 3.854C14.048 3.659 14.048 3.342 13.853 3.147C13.658 2.952 13.341 2.952 13.146 3.147L12.015 4.278C11.717 4.102 11.37 4 11 4C11 2.346 9.654 1 8 1C6.346 1 5 2.346 5 4C4.63 4 4.283 4.102 3.985 4.278L2.854 3.147C2.659 2.952 2.342 2.952 2.147 3.147C1.952 3.342 1.952 3.659 2.147 3.854L3.278 4.985C3.102 5.283 3 5.63 3 6V8H1.5C1.224 8 1 8.224 1 8.5C1 8.776 1.224 9 1.5 9H3C3 10.199 3.424 11.3 4.13 12.163L2.396 13.897C2.201 14.092 2.201 14.409 2.396 14.604C2.494 14.702 2.622 14.75 2.75 14.75C2.878 14.75 3.006 14.701 3.104 14.604L4.838 12.87C5.7 13.576 6.802 14 8.001 14C9.2 14 10.301 13.576 11.164 12.87L12.898 14.604C12.996 14.702 13.124 14.75 13.252 14.75C13.38 14.75 13.508 14.701 13.606 14.604C13.801 14.409 13.801 14.092 13.606 13.897L11.872 12.163C12.578 11.301 13.002 10.199 13.002 9H14.502C14.778 9 15.002 8.776 15.002 8.5C15.002 8.224 14.778 8 14.502 8H14.5ZM8 2C9.103 2 10 2.897 10 4H6C6 2.897 6.897 2 8 2ZM12 9C12 11.206 10.206 13 8 13C5.794 13 4 11.206 4 9V6C4 5.449 4.448 5 5 5H11C11.552 5 12 5.449 12 6V9Z"/></svg>
+              </button>
+            </div>
+          </article>
+          <article class="eat-card">
+            <div class="eat-stage">
+              <img class="eat-preview" data-eat-option="combo" src="assets/eat-idle-blue.gif" alt="Buddy waiting to eat with the Combo munch motion">
+              <button class="bug-token" type="button" aria-label="Drag the 12 by 12 bug icon to feed Buddy">
+                <svg viewBox="0 0 16 16" aria-hidden="true" fill="currentColor"><path d="M14.5 8H13V6C13 5.63 12.898 5.283 12.722 4.985L13.853 3.854C14.048 3.659 14.048 3.342 13.853 3.147C13.658 2.952 13.341 2.952 13.146 3.147L12.015 4.278C11.717 4.102 11.37 4 11 4C11 2.346 9.654 1 8 1C6.346 1 5 2.346 5 4C4.63 4 4.283 4.102 3.985 4.278L2.854 3.147C2.659 2.952 2.342 2.952 2.147 3.147C1.952 3.342 1.952 3.659 2.147 3.854L3.278 4.985C3.102 5.283 3 5.63 3 6V8H1.5C1.224 8 1 8.224 1 8.5C1 8.776 1.224 9 1.5 9H3C3 10.199 3.424 11.3 4.13 12.163L2.396 13.897C2.201 14.092 2.201 14.409 2.396 14.604C2.494 14.702 2.622 14.75 2.75 14.75C2.878 14.75 3.006 14.701 3.104 14.604L4.838 12.87C5.7 13.576 6.802 14 8.001 14C9.2 14 10.301 13.576 11.164 12.87L12.898 14.604C12.996 14.702 13.124 14.75 13.252 14.75C13.38 14.75 13.508 14.701 13.606 14.604C13.801 14.409 13.801 14.092 13.606 13.897L11.872 12.163C12.578 11.301 13.002 10.199 13.002 9H14.502C14.778 9 15.002 8.776 15.002 8.5C15.002 8.224 14.778 8 14.502 8H14.5ZM8 2C9.103 2 10 2.897 10 4H6C6 2.897 6.897 2 8 2ZM12 9C12 11.206 10.206 13 8 13C5.794 13 4 11.206 4 9V6C4 5.449 4.448 5 5 5H11C11.552 5 12 5.449 12 6V9Z"/></svg>
+              </button>
+            </div>
+            <h2>03 · Combo munch</h2>
+            <p>Three quick bites turn the drop into a retro combo. Energetic and satisfying for stacks, batches, or repeat feeding.</p>
+            <div class="eat-timing">3 × 280 ms bites · sparkle finish</div>
+          </article>
+          <article class="eat-card">
+            <div class="eat-stage">
+              <img class="eat-preview" data-eat-option="powerup" src="assets/eat-idle-blue.gif" alt="Buddy waiting to eat with the Power-up bite motion">
+              <button class="bug-token" type="button" aria-label="Drag the 12 by 12 bug icon to feed Buddy">
+                <svg viewBox="0 0 16 16" aria-hidden="true" fill="currentColor"><path d="M14.5 8H13V6C13 5.63 12.898 5.283 12.722 4.985L13.853 3.854C14.048 3.659 14.048 3.342 13.853 3.147C13.658 2.952 13.341 2.952 13.146 3.147L12.015 4.278C11.717 4.102 11.37 4 11 4C11 2.346 9.654 1 8 1C6.346 1 5 2.346 5 4C4.63 4 4.283 4.102 3.985 4.278L2.854 3.147C2.659 2.952 2.342 2.952 2.147 3.147C1.952 3.342 1.952 3.659 2.147 3.854L3.278 4.985C3.102 5.283 3 5.63 3 6V8H1.5C1.224 8 1 8.224 1 8.5C1 8.776 1.224 9 1.5 9H3C3 10.199 3.424 11.3 4.13 12.163L2.396 13.897C2.201 14.092 2.201 14.409 2.396 14.604C2.494 14.702 2.622 14.75 2.75 14.75C2.878 14.75 3.006 14.701 3.104 14.604L4.838 12.87C5.7 13.576 6.802 14 8.001 14C9.2 14 10.301 13.576 11.164 12.87L12.898 14.604C12.996 14.702 13.124 14.75 13.252 14.75C13.38 14.75 13.508 14.701 13.606 14.604C13.801 14.409 13.801 14.092 13.606 13.897L11.872 12.163C12.578 11.301 13.002 10.199 13.002 9H14.502C14.778 9 15.002 8.776 15.002 8.5C15.002 8.224 14.778 8 14.502 8H14.5ZM8 2C9.103 2 10 2.897 10 4H6C6 2.897 6.897 2 8 2ZM12 9C12 11.206 10.206 13 8 13C5.794 13 4 11.206 4 9V6C4 5.449 4.448 5 5 5H11C11.552 5 12 5.449 12 6V9Z"/></svg>
+              </button>
+            </div>
+            <h2>04 · Power-up bite</h2>
+            <p>A diamond-shaped treat triggers a full-screen-style pixel flash. Strongest reward beat for rare or high-value items.</p>
+            <div class="eat-timing">anticipate 560 ms · flash 400 ms · glow 900 ms</div>
+          </article>
+        </div>
+      </section>
+
+      <div class="screen" id="screen">
+        <img class="buddy" id="buddy" src="assets/idle-breathing.gif" alt="Buddy sprite">
+        <div class="placeholder" id="placeholder" aria-live="polite">
+          <div class="label" id="placeholder-label">state</div>
+          <div>gif not found yet</div>
+          <div class="path" id="placeholder-path">assets/…</div>
+        </div>
+        <div class="edited-badge">edited</div>
+      </div>
+
+      <div class="caption">
+        <div class="state-name" id="state-name">idle</div>
+      </div>
+
+      <!-- Color variant (only wired for states that ship a -green.gif companion) -->
+      <div class="toggle" role="tablist" aria-label="Color variant">
+        <button type="button" data-variant="blue"  class="is-active" role="tab" aria-selected="true">
+          <span class="swatch" aria-hidden="true"></span>VS Code
+        </button>
+        <button type="button" data-variant="green" role="tab" aria-selected="false">
+          <span class="swatch" aria-hidden="true"></span>Insiders
+        </button>
+      </div>
+
+      <button type="button" class="export-btn" id="export-btn" aria-label="Export current sprite">
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M6 1v7"/>
+          <path d="M3 5l3 3 3-3"/>
+          <path d="M1.5 10.5h9"/>
+        </svg>
+        <span id="export-btn-label">Export GIF</span>
+      </button>
+    </div>
+
+    <!-- Right column: pixel editor -->
+    <div class="col col--right">
+      <div class="col-title">edit colors</div>
+
+      <section class="editor" aria-label="Pixel editor">
+        <div class="editor-canvas-wrap show-grid" id="editor-wrap">
+          <canvas class="editor-canvas" id="editor-canvas"></canvas>
+          <div class="editor-grid" aria-hidden="true"></div>
+          <div class="editor-hover" id="editor-hover" aria-hidden="true"></div>
+        </div>
+
+        <div class="palette" role="toolbar" aria-label="Color palette" data-active-variant="blue">
+          <div class="palette-row" data-group="blue" aria-label="Blue palette">
+            <button type="button" class="swatch-btn is-active" data-color="#23A8F2" style="background:#23A8F2" title="#23A8F2 · light blue" aria-label="Light blue #23A8F2"></button>
+            <button type="button" class="swatch-btn" data-color="#0077B8" style="background:#0077B8" title="#0077B8 · mid blue" aria-label="Mid blue #0077B8"></button>
+            <button type="button" class="swatch-btn" data-color="#004E7C" style="background:#004E7C" title="#004E7C · dark blue" aria-label="Dark blue #004E7C"></button>
+          </div>
+          <div class="palette-row" data-group="green" aria-label="Green palette">
+            <button type="button" class="swatch-btn" data-color="#24BFA5" style="background:#24BFA5" title="#24BFA5 · light green" aria-label="Light green #24BFA5"></button>
+            <button type="button" class="swatch-btn" data-color="#009A7C" style="background:#009A7C" title="#009A7C · mid green" aria-label="Mid green #009A7C"></button>
+            <button type="button" class="swatch-btn" data-color="#004538" style="background:#004538" title="#004538 · dark green" aria-label="Dark green #004538"></button>
+          </div>
+          <div class="palette-row">
+            <button type="button" class="swatch-btn tool eraser" data-tool="erase" title="Eraser (transparent)" aria-label="Eraser (transparent)"></button>
+            <button type="button" class="swatch-btn tool" data-tool="eyedropper" title="Eyedropper — pick color from canvas" aria-label="Eyedropper">◉</button>
+          </div>
+        </div>
+
+        <div class="editor-actions">
+          <button type="button" id="editor-load" title="Load the currently displayed sprite frame into the editor">load sprite</button>
+          <button type="button" id="editor-grid-toggle" class="is-active" title="Show / hide pixel grid">grid</button>
+          <button type="button" id="editor-clear" title="Clear the canvas (all transparent)">clear</button>
+          <button type="button" id="editor-undo" title="Undo last pixel change">undo</button>
+          <button type="button" id="editor-apply" class="primary" title="Apply the edited sprite to the default view on the left">apply →</button>
+          <button type="button" id="editor-revert" title="Revert the default view to its original animated GIF">revert</button>
+        </div>
+
+        <div class="editor-hint">click to paint · shift+click eyedrop · right-click erase · <b>apply</b> to push edits to the default view, then export</div>
+      </section>
+    </div>
+  </div>
+
+  <p id="sprite-meta">buddy_sprite · 24 × 24 px</p>
+
+  <!-- Embedded so the sleep-bubble state can deploy with this HTML file alone.
+       The JS below derives both theme palettes from this indexed GIF. -->
+  <script type="application/octet-stream" id="sleep-bubble-gif-data">
+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
+  </script>
+
+  <!-- omggif: minimal GIF decoder + encoder used to bake color edits
+       into an animated GIF that plays on the left screen. Exposes
+       `GifReader` and `GifWriter` as globals. -->
+  <script src="https://unpkg.com/omggif@1.0.10/omggif.js"></script>
+
+  <script>
+    (function () {
+      const embeddedSleepBubbleBase64 = document
+        .getElementById('sleep-bubble-gif-data')
+        .textContent
+        .replace(/\s/g, '');
+
+      function embeddedSleepBubble(palette) {
+        if (!embeddedSleepBubbleBase64.startsWith('R0lGOD')) return null;
+        const bytes = Uint8Array.from(
+          atob(embeddedSleepBubbleBase64),
+          (character) => character.charCodeAt(0),
+        );
+        // GIF global color table: DEEP, MID, and LIGHT start at byte 19.
+        bytes.set(palette, 19);
+        return 'data:image/gif;base64,' + btoa(String.fromCharCode(...bytes));
+      }
+
+      const sleepBubbleBlue = embeddedSleepBubble([
+        0, 78, 124,
+        0, 119, 184,
+        35, 168, 242,
+      ]) || 'assets/sleep-bubble-blue.gif';
+      const sleepBubbleGreen = embeddedSleepBubble([
+        0, 69, 56,
+        0, 154, 124,
+        36, 191, 165,
+      ]) || 'assets/sleep-bubble-green.gif';
+
+      // Map each state to its expected asset filenames. Update these paths
+      // as new GIFs land in ./assets/. If a state doesn't have a green
+      // companion, omit the `green` key.
+      const STATES = {
+        idle:     { blue: 'assets/idle-breathing.gif', green: 'assets/idle-breathing-green.gif' },
+        hiding:   { blue: 'assets/hiding-blue.gif', green: 'assets/hiding-green.gif' },
+        smile:    { blue: 'assets/smile-blue.gif', green: 'assets/smile-green.gif' },
+        eat: {
+          blue: 'assets/eat-classic-blue.gif',
+          green: 'assets/eat-classic-green.gif',
+          exploration: true,
+        },
+        sing:     { blue: 'assets/sing-blue.gif', green: 'assets/sing-green.gif' },
+        coffee:   { blue: 'assets/coffee-blue.gif', green: 'assets/coffee-green.gif' },
+        sleep:    { blue: 'assets/sleep-blue.gif', green: 'assets/sleep-green.gif' },
+        'sleep-bubble': {
+          blue: sleepBubbleBlue,
+          green: sleepBubbleGreen,
+          viewBox: { x: 10, y: 20, width: 32, height: 24 },
+        },
+        complete: { blue: 'assets/complete-blue.gif', green: 'assets/complete-green.gif' },
+        branch:   { blue: 'assets/branch-blue.gif', green: 'assets/branch-green.gif' },
+        cool:     { blue: 'assets/cool-blue.gif', green: 'assets/cool-green.gif' },
+        speak:    { blue: 'assets/speak-blue.gif', green: 'assets/speak-green.gif' },
+        speechless: { blue: 'assets/speechless-blue.gif', green: 'assets/speechless-green.gif' },
+        worry:    { blue: 'assets/worry-blue.gif', green: 'assets/worry-green.gif' },
+        headphone: { blue: 'assets/headphone-blue.gif', green: 'assets/headphone-green.gif' },
+        search:   { blue: 'assets/search-blue.gif', green: 'assets/search-green.gif' },
+        working:  { blue: 'assets/working-blue.gif', green: 'assets/working-green.gif' },
+        typing:   { blue: 'assets/typing-blue.gif', green: 'assets/typing-green.gif' },
+        'press-button': { blue: 'assets/press-button-blue.gif', green: 'assets/press-button-green.gif' },
+        tool:     { blue: 'assets/tool-blue.gif', green: 'assets/tool-green.gif' },
+        walking:  { blue: 'assets/walking-blue.gif', green: 'assets/walking-green.gif' },
+        failed:   { blue: 'assets/failed-blue.gif', green: 'assets/failed-green.gif' },
+        clapping: { blue: 'assets/clapping-blue.gif', green: 'assets/clapping-green.gif' },
+        goodbye:  { blue: 'assets/goodbye-blue.gif', green: 'assets/goodbye-green.gif' },
+        icon:     { blue: 'assets/icon-blue.gif', green: 'assets/icon-green.gif' },
+        rainbow:  { blue: 'assets/rainbow.gif' },
+        'heart-rainbow': { blue: 'assets/heart-rainbow.gif' },
+      };
+
+      const screen           = document.getElementById('screen');
+      const img              = document.getElementById('buddy');
+      const tabs             = document.querySelector('.tabs');
+      const placeholder      = document.getElementById('placeholder');
+      const placeholderLabel = document.getElementById('placeholder-label');
+      const placeholderPath  = document.getElementById('placeholder-path');
+      const stateName        = document.getElementById('state-name');
+      const spriteMeta       = document.getElementById('sprite-meta');
+      const tabButtons       = document.querySelectorAll('.tabs button');
+      const variantToggle    = document.querySelector('.toggle');
+      const variantButtons   = document.querySelectorAll('.toggle button');
+      const exportBtn        = document.getElementById('export-btn');
+      const exportBtnLabel   = document.getElementById('export-btn-label');
+      const caption          = document.querySelector('.caption');
+      const eatExplorations  = document.getElementById('eat-explorations');
+      const eatPreviews      = document.querySelectorAll('[data-eat-option]');
+      const bugTokens        = document.querySelectorAll('.bug-token');
+
+      let currentState   = 'idle';
+      let currentVariant = 'blue';
+      // Track the resolved src for the currently displayed sprite (without
+      // the cache-busting query string) so the Export button knows what
+      // file to download. Null while the GIF is missing / showing the
+      // placeholder.
+      let currentSrc = null;
+      // True once the user clicks Apply in the editor and pushes an
+      // edited sprite onto the left screen. In that state the export
+      // button saves the edited (recolored, animated) GIF instead of
+      // the source, and the small "edited" badge is visible.
+      let isEdited = false;
+      // When Apply produces a recolored animated GIF, we keep both the
+      // Blob (for Export) and the object URL (so Revert can revoke it).
+      let editedGifBlob = null;
+      let editedGifUrl  = null;
+
+      function syncTabsHeight() {
+        document.documentElement.style.setProperty('--tabs-height', tabs.offsetHeight + 'px');
+      }
+      syncTabsHeight();
+      window.addEventListener('resize', syncTabsHeight);
+
+      const EAT_DURATIONS = {
+        classic: 2000,
+        side: 2600,
+        vacuum: 1960,
+        combo: 1630,
+        powerup: 2120,
+      };
+      const dragStates = new WeakMap();
+      const feedTimers = new WeakMap();
+
+      function resetEatCard(card) {
+        const preview = card.querySelector('[data-eat-option]');
+        const token = card.querySelector('.bug-token');
+        const stage = card.querySelector('.eat-stage');
+        const timer = feedTimers.get(card);
+        if (timer) clearTimeout(timer);
+        feedTimers.delete(card);
+        card.classList.remove('is-feeding');
+        stage.classList.remove('is-drop-target');
+        token.getAnimations().forEach((animation) => animation.cancel());
+        token.classList.remove('is-dragging');
+        token.style.transform = '';
+        token.style.opacity = '';
+        preview.style.transform = '';
+        preview.dataset.pose = 'rest';
+        delete preview.dataset.facing;
+        const useFigmaIdle = currentVariant === 'blue';
+        preview.classList.add('is-figma-idle');
+        preview.src = useFigmaIdle
+          ? 'assets/eat-figma-before.svg'
+          : `assets/eat-idle-green.gif?t=${Date.now()}`;
+      }
+
+      function feedBuddy(card, token, dragX = 0, dragY = 0) {
+        if (card.classList.contains('is-feeding')) return;
+        const stage = card.querySelector('.eat-stage');
+        const preview = card.querySelector('[data-eat-option]');
+        const option = preview.dataset.eatOption;
+
+        stage.classList.remove('is-drop-target');
+        card.classList.add('is-feeding');
+        preview.classList.remove('is-figma-idle');
+        preview.dataset.pose = 'eating';
+        preview.src = `assets/eat-${option}-${currentVariant}.gif?t=${Date.now()}`;
+        currentSrc = `assets/eat-${option}-${currentVariant}.gif`;
+        token.style.transform = `translate(${dragX}px, ${dragY}px)`;
+        token.style.opacity = '0';
+
+        const timer = setTimeout(() => resetEatCard(card), EAT_DURATIONS[option]);
+        feedTimers.set(card, timer);
+      }
+
+      function pointIsInside(rect, x, y) {
+        return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+      }
+
+      function pointIsInBuddyZone(stage, x, y) {
+        const rect = stage.getBoundingClientRect();
+        const preview = stage.querySelector('[data-eat-option]');
+        const isSideView = preview.dataset.eatOption === 'side';
+        const mouthX = rect.left + (
+          isSideView
+            ? (preview.dataset.facing === 'left' ? 20 : 220)
+            : (preview.dataset.facing === 'left' ? 100 : 140)
+        );
+        const mouthY = rect.top + 190;
+        const radius = isSideView ? 70 : 42;
+        return Math.hypot(x - mouthX, y - mouthY) <= radius;
+      }
+
+      function updateFoodTracking(card, clientX, clientY) {
+        const preview = card.querySelector('[data-eat-option]');
+        const stage = card.querySelector('.eat-stage');
+        const rect = stage.getBoundingClientRect();
+        const buddyX = rect.left + 120;
+        const buddyY = rect.top + 170;
+        const dx = clientX - buddyX;
+        const dy = clientY - buddyY;
+        const distance = Math.hypot(dx, dy);
+        const facing = dx < -20 ? 'left' : 'right';
+        preview.dataset.facing = facing;
+        preview.style.transform = facing === 'left' ? 'scaleX(-1)' : '';
+
+        const nextPose = distance <= 145 ? 'tracking' : 'rest';
+        if (preview.dataset.pose === nextPose) return;
+        preview.dataset.pose = nextPose;
+        const useFigmaRest = nextPose === 'rest' && currentVariant === 'blue';
+        preview.classList.add('is-figma-idle');
+        const trackingAsset = preview.dataset.eatOption === 'side'
+          ? `assets/eat-side-tracking-${currentVariant}.gif?t=${Date.now()}`
+          : `assets/eat-tracking-${currentVariant}.gif?t=${Date.now()}`;
+        preview.src = useFigmaRest
+          ? 'assets/eat-figma-before.svg'
+          : nextPose === 'tracking'
+            ? trackingAsset
+            : `assets/eat-idle-${currentVariant}.gif?t=${Date.now()}`;
+      }
+
+      bugTokens.forEach((token) => {
+        const card = token.closest('.eat-card');
+        const stage = token.closest('.eat-stage');
+
+        token.addEventListener('pointerdown', (event) => {
+          if (card.classList.contains('is-feeding')) return;
+          event.preventDefault();
+          token.setPointerCapture(event.pointerId);
+          dragStates.set(token, {
+            pointerId: event.pointerId,
+            startX: event.clientX,
+            startY: event.clientY,
+            x: 0,
+            y: 0,
+          });
+          token.classList.add('is-dragging');
+        });
+
+        token.addEventListener('pointermove', (event) => {
+          const drag = dragStates.get(token);
+          if (!drag || drag.pointerId !== event.pointerId) return;
+          drag.x = event.clientX - drag.startX;
+          drag.y = event.clientY - drag.startY;
+          token.style.transform = `translate(${drag.x}px, ${drag.y}px)`;
+          updateFoodTracking(card, event.clientX, event.clientY);
+          stage.classList.toggle(
+            'is-drop-target',
+            pointIsInBuddyZone(stage, event.clientX, event.clientY),
+          );
+        });
+
+        function finishDrag(event, cancelled = false) {
+          const drag = dragStates.get(token);
+          if (!drag || drag.pointerId !== event.pointerId) return;
+          dragStates.delete(token);
+          token.classList.remove('is-dragging');
+          const accepted = !cancelled && pointIsInBuddyZone(
+            stage,
+            event.clientX,
+            event.clientY,
+          );
+          if (accepted) {
+            feedBuddy(card, token, drag.x, drag.y);
+            return;
+          }
+          resetEatCard(card);
+        }
+
+        token.addEventListener('pointerup', (event) => finishDrag(event));
+        token.addEventListener('pointercancel', (event) => finishDrag(event, true));
+        token.addEventListener('keydown', (event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return;
+          event.preventDefault();
+          feedBuddy(card, token);
+        });
+      });
+
+      function showPlaceholder(state, path) {
+        img.classList.add('is-hidden');
+        placeholder.classList.add('is-visible');
+        placeholderLabel.textContent = state;
+        placeholderPath.textContent  = path;
+        currentSrc = null;
+        exportBtn.disabled = true;
+        // No sprite loaded → default screen back to 240x240 so the frame
+        // doesn't retain the previous state's oversized dimensions.
+        resizeScreenToSprite(24, 24);
+      }
+
+      function showImage(src) {
+        img.classList.remove('is-hidden');
+        placeholder.classList.remove('is-visible');
+        currentSrc = src;
+        exportBtn.disabled = false;
+      }
+
+      // Render the sprite at exactly SPRITE_SCALE px per source pixel so the
+      // buddy (always 24 source px on the visible side) stays a constant
+      // 24 * SPRITE_SCALE on screen — never shrunk by object-fit. The
+      // .screen container grows/shrinks to match the sprite's natural
+      // dimensions so any extras (coffee cup, music notes, branch icon,
+      // speech bubble) add area alongside the buddy instead of squeezing it.
+      const SPRITE_SCALE = 10;
+      function resizeScreenToSprite(naturalW, naturalH, viewBox) {
+        const sourceW = naturalW || 24;
+        const sourceH = naturalH || 24;
+        const viewX = viewBox?.x || 0;
+        const viewY = viewBox?.y || 0;
+        const viewW = viewBox?.width || sourceW;
+        const viewH = viewBox?.height || sourceH;
+        screen.style.boxSizing = 'content-box';
+        screen.style.width  = viewW * SPRITE_SCALE + 'px';
+        screen.style.height = viewH * SPRITE_SCALE + 'px';
+        img.style.position = 'absolute';
+        img.style.left = -viewX * SPRITE_SCALE + 'px';
+        img.style.top  = -viewY * SPRITE_SCALE + 'px';
+        img.style.width  = sourceW * SPRITE_SCALE + 'px';
+        img.style.height = sourceH * SPRITE_SCALE + 'px';
+        spriteMeta.textContent = `buddy_sprite · ${sourceW} × ${sourceH} px`;
+      }
+
+      function render() {
+        const entry = STATES[currentState];
+        stateName.textContent = currentState;
+
+        // Switching state / variant always drops back to the source GIF
+        // and clears any pending edit on the left screen.
+        clearEditedState();
+
+        // Rainbow states have no theme variant — hide the VS Code /
+        // Insiders toggle and force the variant back to blue so the
+        // (single) source GIF is what gets loaded and exported.
+        const hasGreen = !!entry.green;
+        if (variantToggle) variantToggle.hidden = !hasGreen;
+        if (!hasGreen && currentVariant !== 'blue') {
+          currentVariant = 'blue';
+          variantButtons.forEach((b) => {
+            const isBlue = b.dataset.variant === 'blue';
+            b.classList.toggle('is-active', isBlue);
+            b.setAttribute('aria-selected', isBlue ? 'true' : 'false');
+          });
+          syncPaletteToVariant();
+        }
+
+        // Fall back to blue if the requested variant isn't available for
+        // this state (e.g. only blue exists so far).
+        const src = entry[currentVariant] || entry.blue;
+        const isExploration = !!entry.exploration;
+        eatExplorations.hidden = !isExploration;
+        screen.hidden = isExploration;
+        caption.hidden = isExploration;
+        exportBtn.hidden = false;
+
+        if (isExploration) {
+          eatPreviews.forEach((preview) => resetEatCard(preview.closest('.eat-card')));
+          currentSrc = `assets/eat-classic-${currentVariant}.gif`;
+          exportBtn.disabled = false;
+          exportBtnLabel.textContent = 'Export GIF';
+          spriteMeta.textContent = 'buddy_sprite · eat motion explorations · 34 × 24 px';
+          return;
+        }
+
+        // Probe the asset first — the placeholder pattern only shows up
+        // for states where the GIF hasn't been produced yet.
+        // Share ONE cache-bust token between probe and img so the browser
+        // fetches the GIF exactly once.
+        const cacheBustedSrc = src.startsWith('data:')
+          ? src
+          : src + '?t=' + Date.now();
+        const probe = new Image();
+        probe.onload = () => {
+          // Resize the .screen + .buddy to the sprite's natural dimensions
+          // BEFORE swapping the src so the buddy never visibly shrinks
+          // between states. `probe` is already decoded so its naturalWidth /
+          // naturalHeight are reliable here.
+          resizeScreenToSprite(probe.naturalWidth, probe.naturalHeight, entry.viewBox);
+          // Reuse the exact cache-busted URL from the probe so the browser
+          // serves it from memory instead of refetching.
+          img.src = cacheBustedSrc;
+          showImage(src);
+          // Refresh the editor with the new sprite's first-frame pixels
+          // once the browser has decoded it. This also resets the
+          // originalData reference used by Apply's color-map.
+          img.addEventListener('load', () => {
+            try {
+              const w = img.naturalWidth || 24;
+              const h = img.naturalHeight || 24;
+              if (w !== spriteWidth || h !== spriteHeight) {
+                resizeEditorToSprite(w, h);
+              }
+              ectx.clearRect(0, 0, spriteWidth, spriteHeight);
+              ectx.drawImage(img, 0, 0, spriteWidth, spriteHeight);
+              originalData = ectx.getImageData(0, 0, spriteWidth, spriteHeight);
+              undoStack.length = 0;
+            } catch (err) {
+              console.warn('[editor] failed to auto-refresh from new sprite', err);
+            }
+          }, { once: true });
+        };
+        probe.onerror = () => {
+          showPlaceholder(currentState, src);
+        };
+        // Cache-bust the probe too — otherwise a stale cached version of the
+        // GIF (e.g. an earlier 32x24 build of the same state) reports its
+        // OLD naturalWidth/Height, and resizeScreenToSprite ends up sizing
+        // the screen to those old dimensions, stretching the fresh sprite
+        // that loads into `img` afterwards.
+        probe.src = cacheBustedSrc;
+      }
+
+      function clearEditedState() {
+        isEdited = false;
+        screen.classList.remove('is-edited');
+        exportBtnLabel.textContent = 'Export GIF';
+        if (editedGifUrl) {
+          // Defer the revoke so the <img> can safely load the next src
+          // before its current object-URL disappears (avoids a broken
+          // image flash between render() and the new src loading).
+          const stale = editedGifUrl;
+          setTimeout(() => URL.revokeObjectURL(stale), 1000);
+          editedGifUrl = null;
+        }
+        editedGifBlob = null;
+      }
+
+      // Download the current sprite.
+      //
+      // - If the sprite is unedited we fetch the source GIF bytes and
+      //   save them directly — no re-encoding, animation preserved.
+      // - If the user has applied an edit, the recolored animated GIF
+      //   we baked in `applyEdit()` is already sitting in
+      //   `editedGifBlob`; just save it.
+      async function exportCurrent() {
+        if (!currentSrc) return;
+        const variantLabel = currentVariant === 'green' ? 'insiders' : 'vscode';
+
+        if (isEdited && editedGifBlob) {
+          const filename = `buddy-${currentState}-${variantLabel}-edited.gif`;
+          downloadBlob(editedGifBlob, filename);
+          return;
+        }
+
+        const filename = `buddy-${currentState}-${variantLabel}.gif`;
+        try {
+          const res = await fetch(currentSrc);
+          if (!res.ok) throw new Error(`Failed to fetch ${currentSrc}: ${res.status}`);
+          const blob = await res.blob();
+          downloadBlob(blob, filename);
+        } catch (err) {
+          console.error('[buddy_sprite] export failed', err);
+          // Fallback: open the GIF in a new tab so the user can save it manually.
+          window.open(currentSrc, '_blank', 'noopener');
+        }
+      }
+
+      function downloadBlob(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        // Give the browser a tick to start the download before revoking.
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+
+      exportBtn.addEventListener('click', exportCurrent);
+
+      tabButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          if (btn.classList.contains('is-active')) return;
+          tabButtons.forEach((b) => {
+            b.classList.remove('is-active');
+            b.setAttribute('aria-selected', 'false');
+          });
+          btn.classList.add('is-active');
+          btn.setAttribute('aria-selected', 'true');
+          currentState = btn.dataset.state;
+          render();
+        });
+      });
+
+      variantButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          if (btn.classList.contains('is-active')) return;
+          variantButtons.forEach((b) => {
+            b.classList.remove('is-active');
+            b.setAttribute('aria-selected', 'false');
+          });
+          btn.classList.add('is-active');
+          btn.setAttribute('aria-selected', 'true');
+          currentVariant = btn.dataset.variant;
+          syncPaletteToVariant();
+          render();
+        });
+      });
+
+      // Show only the palette row that matches the current variant.
+      // If the currently-selected swatch belongs to the hidden group,
+      // fall back to the first swatch of the visible group so the
+      // paint tool doesn't silently use an off-palette color.
+      function syncPaletteToVariant() {
+        const palette = document.querySelector('.palette');
+        if (!palette) return;
+        palette.setAttribute('data-active-variant', currentVariant);
+
+        const active = palette.querySelector('.swatch-btn.is-active');
+        if (active && !active.dataset.tool) {
+          const activeRow = active.closest('.palette-row');
+          const hidden = activeRow && activeRow.dataset.group && activeRow.dataset.group !== currentVariant;
+          if (hidden) {
+            const fallback = palette.querySelector(
+              `.palette-row[data-group="${currentVariant}"] .swatch-btn`,
+            );
+            if (fallback) {
+              setActiveSwatch(fallback);
+              mode = 'paint';
+              currentColor = fallback.dataset.color;
+            }
+          }
+        }
+      }
+
+      render();
+
+      // ────────────────────────────────────────────────────────────
+      // Pixel editor
+      // ────────────────────────────────────────────────────────────
+      // Backing canvas is native 24×24; CSS scales it up with
+      // image-rendering: pixelated so each source pixel becomes one
+      // crisp square. Clicks are mapped from CSS pixels back to the
+      // 0..23 grid via the canvas bounding rect.
+      const editorWrap    = document.getElementById('editor-wrap');
+      const editorCanvas  = document.getElementById('editor-canvas');
+      const editorHover   = document.getElementById('editor-hover');
+      const swatchButtons = document.querySelectorAll('.swatch-btn');
+      const loadBtn       = document.getElementById('editor-load');
+      const gridToggleBtn = document.getElementById('editor-grid-toggle');
+      const clearBtn      = document.getElementById('editor-clear');
+      const undoBtn       = document.getElementById('editor-undo');
+      const applyBtn      = document.getElementById('editor-apply');
+      const revertBtn     = document.getElementById('editor-revert');
+      const ectx = editorCanvas.getContext('2d', { willReadFrequently: true });
+      ectx.imageSmoothingEnabled = false;
+
+      // Active tool state. `mode` is 'paint' | 'erase' | 'eyedropper'.
+      // In paint mode, `currentColor` is the fill.
+      let mode = 'paint';
+      let currentColor = '#23A8F2';
+
+      // The editor's backing canvas is resized to match the current
+      // sprite's native dimensions on every load so pixel coordinates
+      // in the editor line up exactly with pixel coordinates in the
+      // source GIF's frames. `pixelSize` is the CSS pixel size of one
+      // sprite pixel (used for the grid overlay and the hover square).
+      let spriteWidth  = 24;
+      let spriteHeight = 24;
+      let pixelSize    = SPRITE_SCALE;
+
+      // Simple undo stack of ImageData snapshots. Capped so we don't
+      // grow unbounded during a long editing session.
+      const undoStack = [];
+      const UNDO_CAP = 50;
+      // Pristine snapshot of the sprite as it was first loaded into the
+      // editor. Used by Apply to build the source → target color map.
+      // Refreshed whenever a new sprite is loaded (state change or
+      // "load sprite" button).
+      let originalData = null;
+
+      // Resize the editor's backing canvas AND its wrap so the editor
+      // is always the same on-screen size as the left .screen. Each
+      // source pixel is drawn as SPRITE_SCALE (10) CSS px, and the
+      // wrap grows to (w * SPRITE_SCALE) × (h * SPRITE_SCALE) — the
+      // canvas fills it edge-to-edge (no letterboxing).
+      function resizeEditorToSprite(w, h) {
+        spriteWidth  = w;
+        spriteHeight = h;
+        editorCanvas.width  = w;
+        editorCanvas.height = h;
+        ectx.imageSmoothingEnabled = false;
+
+        pixelSize = SPRITE_SCALE;
+        const displayW = w * pixelSize;
+        const displayH = h * pixelSize;
+
+        editorWrap.style.width  = displayW + 'px';
+        editorWrap.style.height = displayH + 'px';
+
+        editorCanvas.style.left   = '0px';
+        editorCanvas.style.top    = '0px';
+        editorCanvas.style.width  = displayW + 'px';
+        editorCanvas.style.height = displayH + 'px';
+
+        const gridEl = editorWrap.querySelector('.editor-grid');
+        if (gridEl) {
+          gridEl.style.left   = '0px';
+          gridEl.style.top    = '0px';
+          gridEl.style.width  = displayW + 'px';
+          gridEl.style.height = displayH + 'px';
+          gridEl.style.backgroundSize = pixelSize + 'px ' + pixelSize + 'px';
+        }
+        editorHover.style.width  = pixelSize + 'px';
+        editorHover.style.height = pixelSize + 'px';
+      }
+
+      function pushUndo() {
+        try {
+          undoStack.push(ectx.getImageData(0, 0, spriteWidth, spriteHeight));
+          if (undoStack.length > UNDO_CAP) undoStack.shift();
+        } catch (err) {
+          // getImageData can throw if the canvas was tainted by a
+          // cross-origin image draw; the sprite GIFs are same-origin
+          // so this shouldn't fire in practice.
+          console.warn('[editor] pushUndo failed', err);
+        }
+      }
+
+      function setActiveSwatch(btn) {
+        swatchButtons.forEach((b) => b.classList.remove('is-active'));
+        btn.classList.add('is-active');
+      }
+
+      swatchButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          setActiveSwatch(btn);
+          if (btn.dataset.tool === 'erase') {
+            mode = 'erase';
+          } else if (btn.dataset.tool === 'eyedropper') {
+            mode = 'eyedropper';
+          } else {
+            mode = 'paint';
+            currentColor = btn.dataset.color;
+          }
+        });
+      });
+
+      // Convert a client-space pointer event to integer pixel coords
+      // in the sprite grid, or null if outside.
+      function eventToPixel(evt) {
+        const rect = editorCanvas.getBoundingClientRect();
+        const x = Math.floor(((evt.clientX - rect.left) / rect.width) * spriteWidth);
+        const y = Math.floor(((evt.clientY - rect.top)  / rect.height) * spriteHeight);
+        if (x < 0 || x >= spriteWidth || y < 0 || y >= spriteHeight) return null;
+        return { x, y };
+      }
+
+      function paintPixel(x, y, color) {
+        if (color === null) {
+          ectx.clearRect(x, y, 1, 1);
+        } else {
+          ectx.fillStyle = color;
+          ectx.fillRect(x, y, 1, 1);
+        }
+      }
+
+      function pickPixel(x, y) {
+        const d = ectx.getImageData(x, y, 1, 1).data;
+        if (d[3] === 0) return null;
+        const hex = '#' + [d[0], d[1], d[2]]
+          .map((n) => n.toString(16).padStart(2, '0').toUpperCase())
+          .join('');
+        return hex;
+      }
+
+      function applyToolAt(x, y, evt) {
+        // Modifier shortcuts take precedence over the selected tool.
+        const isErase = evt.button === 2 || mode === 'erase';
+        const isPick  = evt.shiftKey  || mode === 'eyedropper';
+
+        if (isPick) {
+          const hex = pickPixel(x, y);
+          if (!hex) return;
+          // Match a palette swatch if the picked color exactly
+          // matches one; otherwise just set currentColor without
+          // changing the active swatch.
+          const match = Array.from(swatchButtons).find(
+            (b) => (b.dataset.color || '').toUpperCase() === hex,
+          );
+          if (match) setActiveSwatch(match);
+          currentColor = hex;
+          mode = 'paint';
+          return;
+        }
+
+        pushUndo();
+        paintPixel(x, y, isErase ? null : currentColor);
+      }
+
+      // Track drag-paint: mousedown starts, mousemove continues while
+      // the button is held.
+      let isDragging = false;
+      let dragButton = 0;
+      let lastPixel  = null;
+
+      editorCanvas.addEventListener('mousedown', (evt) => {
+        evt.preventDefault();
+        const p = eventToPixel(evt);
+        if (!p) return;
+        isDragging = true;
+        dragButton = evt.button;
+        lastPixel  = null;
+        applyToolAt(p.x, p.y, evt);
+        lastPixel = `${p.x},${p.y}`;
+      });
+
+      editorCanvas.addEventListener('contextmenu', (evt) => {
+        // Suppress the native menu so right-click can erase.
+        evt.preventDefault();
+      });
+
+      window.addEventListener('mouseup', () => {
+        isDragging = false;
+        lastPixel  = null;
+      });
+
+      editorWrap.addEventListener('mousemove', (evt) => {
+        const p = eventToPixel(evt);
+        if (!p) {
+          editorHover.style.display = 'none';
+          return;
+        }
+        editorHover.style.display = 'block';
+        const canvasLeft = parseFloat(editorCanvas.style.left) || 0;
+        const canvasTop  = parseFloat(editorCanvas.style.top)  || 0;
+        editorHover.style.left = (canvasLeft + p.x * pixelSize) + 'px';
+        editorHover.style.top  = (canvasTop  + p.y * pixelSize) + 'px';
+
+        if (!isDragging) return;
+        const key = `${p.x},${p.y}`;
+        if (key === lastPixel) return;
+        lastPixel = key;
+        // Pass a synthetic evt so button/shift state is preserved
+        // across a drag stroke — but only paint/erase during drag,
+        // never eyedrop (which is a discrete pick).
+        const synthetic = {
+          button:   dragButton,
+          shiftKey: false,
+        };
+        // If the initial click was an eyedrop we shouldn't repaint.
+        if (mode !== 'eyedropper') applyToolAt(p.x, p.y, synthetic);
+      });
+
+      editorWrap.addEventListener('mouseleave', () => {
+        editorHover.style.display = 'none';
+      });
+
+      // Load the currently displayed sprite frame into the editor.
+      // Drawing a GIF <img> to a canvas captures whatever frame is
+      // currently rendered — which is usually fine for pixel editing.
+      loadBtn.addEventListener('click', () => {
+        if (img.classList.contains('is-hidden') || !img.complete || !img.naturalWidth) {
+          console.warn('[editor] no sprite to load');
+          return;
+        }
+        pushUndo();
+        // Sync canvas size to the sprite in case it changed.
+        if (img.naturalWidth !== spriteWidth || img.naturalHeight !== spriteHeight) {
+          resizeEditorToSprite(img.naturalWidth, img.naturalHeight);
+        }
+        ectx.clearRect(0, 0, spriteWidth, spriteHeight);
+        try {
+          ectx.drawImage(img, 0, 0, spriteWidth, spriteHeight);
+          originalData = ectx.getImageData(0, 0, spriteWidth, spriteHeight);
+        } catch (err) {
+          console.error('[editor] failed to load sprite', err);
+        }
+      });
+
+      gridToggleBtn.addEventListener('click', () => {
+        const on = editorWrap.classList.toggle('show-grid');
+        gridToggleBtn.classList.toggle('is-active', on);
+      });
+
+      clearBtn.addEventListener('click', () => {
+        pushUndo();
+        ectx.clearRect(0, 0, spriteWidth, spriteHeight);
+      });
+
+      undoBtn.addEventListener('click', () => {
+        const snap = undoStack.pop();
+        if (!snap) return;
+        ectx.putImageData(snap, 0, 0);
+      });
+
+      // Apply: bake the color edits into an animated GIF and swap it
+      // onto the left screen so the character keeps animating with the
+      // new colors. This works by:
+      //   1. Diffing the editor canvas against the pristine snapshot to
+      //      build a source-color → target-color map.
+      //   2. Decoding every frame of the current source GIF.
+      //   3. Remapping matching pixels in every frame.
+      //   4. Re-encoding as a new animated GIF and dropping it into the
+      //      left <img>.
+      applyBtn.addEventListener('click', async () => {
+        if (!originalData) {
+          console.warn('[apply] no original snapshot; hit "load sprite" first');
+          return;
+        }
+        if (typeof GifReader === 'undefined' || typeof GifWriter === 'undefined') {
+          console.error('[apply] omggif not loaded; cannot bake animated GIF');
+          return;
+        }
+
+        const patch = buildPixelPatch(originalData.data, ectx.getImageData(0, 0, spriteWidth, spriteHeight).data);
+        if (patch.length === 0) {
+          console.warn('[apply] no pixel changes detected');
+          return;
+        }
+
+        const sourceUrl = STATES[currentState][currentVariant] || STATES[currentState].blue;
+        applyBtn.disabled = true;
+        const prevLabel = applyBtn.textContent;
+        applyBtn.textContent = 'baking…';
+        try {
+          const blob = await applyPatchToAnimatedGif(sourceUrl, patch);
+          const url = URL.createObjectURL(blob);
+          if (editedGifUrl) URL.revokeObjectURL(editedGifUrl);
+          editedGifBlob = blob;
+          editedGifUrl  = url;
+          img.src = url;
+          img.classList.remove('is-hidden');
+          placeholder.classList.remove('is-visible');
+          currentSrc = url;
+          isEdited = true;
+          screen.classList.add('is-edited');
+          exportBtn.disabled = false;
+          exportBtnLabel.textContent = 'Export GIF';
+        } catch (err) {
+          console.error('[apply] failed to bake animated GIF', err);
+        } finally {
+          applyBtn.disabled = false;
+          applyBtn.textContent = prevLabel;
+        }
+      });
+
+      // Revert: restore the original animated GIF for the current
+      // state + variant. Doesn't touch the editor canvas — your edits
+      // are still there if you want to re-apply.
+      revertBtn.addEventListener('click', () => {
+        render();
+      });
+
+      // ────────────────────────────────────────────────────────────
+      // Animated-GIF positional patching
+      // ────────────────────────────────────────────────────────────
+      // Build a per-pixel patch: the list of (x,y) positions whose
+      // RGBA differs between the pristine snapshot and the current
+      // editor canvas, plus BOTH the pre-edit color at that spot AND
+      // the target color/alpha.
+      //
+      // Why we carry the pre-edit color:
+      //   The sprite is animated and can shift between frames (e.g.
+      //   idle-breathing moves down 1 px halfway through the loop).
+      //   A pure positional patch would leave an orphan colored pixel
+      //   at the old coordinate on frames where the sprite has moved,
+      //   so the edit looks like it "only applies to the first frame."
+      //   Instead we treat each edit as "repaint the sprite pixel that
+      //   used to be this color near this position" — see
+      //   applyPatchToAnimatedGif below, which searches a small radius
+      //   for a matching source pixel and repaints it, letting the
+      //   edit follow the sprite as it animates.
+      //
+      // We still intentionally DO NOT do a global palette swap — the
+      // radius is bounded so a single painted arm-tip pixel doesn't
+      // recolor every same-color pixel elsewhere on the sprite.
+      function buildPixelPatch(origData, editedData) {
+        const patch = [];
+        for (let i = 0; i < editedData.length; i += 4) {
+          if (
+            origData[i]     === editedData[i]     &&
+            origData[i + 1] === editedData[i + 1] &&
+            origData[i + 2] === editedData[i + 2] &&
+            origData[i + 3] === editedData[i + 3]
+          ) continue;
+          const pixelIndex = i / 4;
+          patch.push({
+            x: pixelIndex % spriteWidth,
+            y: Math.floor(pixelIndex / spriteWidth),
+            // Pre-edit color at (x,y) in the editor snapshot.
+            srcR: origData[i],
+            srcG: origData[i + 1],
+            srcB: origData[i + 2],
+            srcA: origData[i + 3],
+            // New color the user painted.
+            r: editedData[i],
+            g: editedData[i + 1],
+            b: editedData[i + 2],
+            a: editedData[i + 3],
+          });
+        }
+        return patch;
+      }
+
+      // Decode a GIF into { width, height, frames: [{ pixels, delay }] }
+      // where pixels is an RGBA Uint8ClampedArray for the FULL logical
+      // screen (already composited according to disposal method).
+      async function decodeAllFrames(url) {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`decode: fetch ${url} → ${res.status}`);
+        const buf = await res.arrayBuffer();
+        const reader = new GifReader(new Uint8Array(buf));
+        const width  = reader.width;
+        const height = reader.height;
+        const n = reader.numFrames();
+        const composite = new Uint8ClampedArray(width * height * 4);
+        const frames = [];
+        for (let i = 0; i < n; i++) {
+          const info = reader.frameInfo(i);
+          let savedBefore = null;
+          if (info.disposal === 3) savedBefore = new Uint8ClampedArray(composite);
+
+          // decodeAndBlitFrameRGBA leaves transparent pixels untouched,
+          // so accumulating into `composite` gives us the correct visual
+          // for disposal=0/1 out of the box.
+          reader.decodeAndBlitFrameRGBA(i, composite);
+          frames.push({
+            pixels: new Uint8ClampedArray(composite),
+            delay: info.delay,
+          });
+
+          if (info.disposal === 2) {
+            // Restore to background (transparent) within the frame area.
+            for (let y = info.y; y < info.y + info.height; y++) {
+              const row = y * width;
+              for (let x = info.x; x < info.x + info.width; x++) {
+                const idx = (row + x) * 4;
+                composite[idx]     = 0;
+                composite[idx + 1] = 0;
+                composite[idx + 2] = 0;
+                composite[idx + 3] = 0;
+              }
+            }
+          } else if (info.disposal === 3 && savedBefore) {
+            composite.set(savedBefore);
+          }
+        }
+        return { width, height, frames };
+      }
+
+      // Encode a sequence of RGBA frames as an animated GIF using
+      // omggif's GifWriter. We build an 8-bit indexed palette from all
+      // colors observed across the frames — our sprites use only a
+      // handful of colors so the palette fits comfortably. Transparent
+      // pixels are mapped to a dedicated palette slot.
+      function encodeAnimatedGif(width, height, frames) {
+        const uniq = new Map();
+        let hasTransparent = false;
+        for (const f of frames) {
+          for (let i = 0; i < f.pixels.length; i += 4) {
+            if (f.pixels[i + 3] === 0) { hasTransparent = true; continue; }
+            const key = (f.pixels[i] << 16) | (f.pixels[i + 1] << 8) | f.pixels[i + 2];
+            if (!uniq.has(key)) uniq.set(key, uniq.size);
+          }
+        }
+
+        const palette = Array.from(uniq.keys());
+        let transparentIndex = -1;
+        if (hasTransparent) {
+          transparentIndex = palette.length;
+          palette.push(0x000000); // filler slot for transparency
+        }
+        // Pad to a power of 2 (GIF requirement).
+        let size = 2;
+        while (size < palette.length) size *= 2;
+        while (palette.length < size) palette.push(0);
+
+        const indexOf = new Map();
+        uniq.forEach((idx, key) => indexOf.set(key, idx));
+
+        // Generous buffer: worst case ~5 bytes per pixel per frame.
+        const buf = new Uint8Array(width * height * frames.length * 5 + 1024);
+        const writer = new GifWriter(buf, width, height, { loop: 0 });
+        for (const f of frames) {
+          const n = width * height;
+          const indexed = new Uint8Array(n);
+          for (let p = 0; p < n; p++) {
+            const off = p * 4;
+            if (f.pixels[off + 3] === 0) {
+              indexed[p] = transparentIndex;
+            } else {
+              const key = (f.pixels[off] << 16) | (f.pixels[off + 1] << 8) | f.pixels[off + 2];
+              indexed[p] = indexOf.get(key);
+            }
+          }
+          writer.addFrame(0, 0, width, height, indexed, {
+            palette,
+            delay: f.delay || 10, // centiseconds; fall back to 100ms
+            transparent: transparentIndex >= 0 ? transparentIndex : undefined,
+            disposal: 2, // restore to background between frames
+          });
+        }
+        const size2 = writer.end();
+        return new Blob([buf.slice(0, size2)], { type: 'image/gif' });
+      }
+
+      // Compute the translation offset (dx, dy) that best aligns the
+      // sprite's opaque silhouette between a reference frame and a
+      // target frame. Returns integer pixel offsets in [-MAX_SHIFT,
+      // MAX_SHIFT]. Interpretation: target[x+dx, y+dy] corresponds
+      // to reference[x, y].
+      //
+      // Scoring rewards opaque-opaque matches and penalizes
+      // opaque-vs-transparent mismatches. Because it's a whole-sprite
+      // alignment (not a per-pixel color search), it doesn't get
+      // fooled when the same color appears in multiple places — the
+      // arm tip stays anchored to the arm even if a matching color
+      // sits closer at another spot.
+      function computeAlignmentOffset(reference, target, w, h, maxShift) {
+        let bestScore = -Infinity;
+        let bestDx = 0, bestDy = 0;
+        for (let dy = -maxShift; dy <= maxShift; dy++) {
+          for (let dx = -maxShift; dx <= maxShift; dx++) {
+            let score = 0;
+            for (let y = 0; y < h; y++) {
+              const ty = y + dy;
+              if (ty < 0 || ty >= h) continue;
+              for (let x = 0; x < w; x++) {
+                const tx = x + dx;
+                if (tx < 0 || tx >= w) continue;
+                const refOpaque = reference[(y  * w + x ) * 4 + 3] > 0;
+                const tgtOpaque = target   [(ty * w + tx) * 4 + 3] > 0;
+                if (refOpaque && tgtOpaque)       score += 2;
+                else if (refOpaque !== tgtOpaque) score -= 1;
+              }
+            }
+            // Tie-breaker: prefer the smaller shift so a truly static
+            // sprite doesn't drift due to score ties.
+            if (
+              score > bestScore ||
+              (score === bestScore && (Math.abs(dx) + Math.abs(dy)) < (Math.abs(bestDx) + Math.abs(bestDy)))
+            ) {
+              bestScore = score;
+              bestDx = dx;
+              bestDy = dy;
+            }
+          }
+        }
+        return { dx: bestDx, dy: bestDy };
+      }
+
+      async function applyPatchToAnimatedGif(url, patch) {
+        const { width, height, frames } = await decodeAllFrames(url);
+
+        // Pick the reference frame that best matches the editor's
+        // pre-edit snapshot. Typically frame 0 (what the editor
+        // showed), but we fall back to whichever frame agrees with
+        // the most patch entries' pre-edit colors, so timing quirks
+        // (browser already advanced the animated <img> before the
+        // editor sampled it) can't derail alignment.
+        let referenceFrameIndex = 0;
+        const opaquePatches = patch.filter(p => p.srcA > 0);
+        if (opaquePatches.length > 0) {
+          let bestMatches = -1;
+          for (let i = 0; i < frames.length; i++) {
+            let matches = 0;
+            for (const p of opaquePatches) {
+              const off = (p.y * width + p.x) * 4;
+              if (
+                frames[i].pixels[off]     === p.srcR &&
+                frames[i].pixels[off + 1] === p.srcG &&
+                frames[i].pixels[off + 2] === p.srcB &&
+                frames[i].pixels[off + 3] === p.srcA
+              ) matches++;
+            }
+            if (matches > bestMatches) { bestMatches = matches; referenceFrameIndex = i; }
+            if (matches === opaquePatches.length) break;
+          }
+        }
+        const reference = frames[referenceFrameIndex].pixels;
+
+        // 4 px covers every buddy motion we've observed (breathing,
+        // mouth, floating Z's, magnifying-glass wiggle).
+        const MAX_SHIFT = 4;
+
+        // Precompute per-frame sprite offsets once.
+        const offsets = frames.map((f, i) =>
+          i === referenceFrameIndex
+            ? { dx: 0, dy: 0 }
+            : computeAlignmentOffset(reference, f.pixels, width, height, MAX_SHIFT)
+        );
+
+        for (let i = 0; i < frames.length; i++) {
+          const targetPixels = frames[i].pixels;
+          const { dx, dy } = offsets[i];
+          for (const p of patch) {
+            const nx = p.x + dx;
+            const ny = p.y + dy;
+            if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
+            const off = (ny * width + nx) * 4;
+            if (p.srcA > 0) {
+              // The pixel we're about to repaint must still hold the
+              // pre-edit color at the shifted position. If the sprite
+              // has morphed on this frame (not just translated), skip
+              // — better a missing pixel than a wrongly-colored one.
+              if (
+                targetPixels[off]     !== p.srcR ||
+                targetPixels[off + 1] !== p.srcG ||
+                targetPixels[off + 2] !== p.srcB ||
+                targetPixels[off + 3] !== p.srcA
+              ) continue;
+            }
+            // srcA === 0: additive decoration painted onto a
+            // transparent editor pixel. Apply at the shifted position
+            // so decorations follow the buddy too.
+            targetPixels[off]     = p.r;
+            targetPixels[off + 1] = p.g;
+            targetPixels[off + 2] = p.b;
+            targetPixels[off + 3] = p.a;
+          }
+        }
+        return encodeAnimatedGif(width, height, frames);
+      }
+
+      // Auto-load the initial sprite once it decodes so the editor
+      // starts in a useful state instead of an empty checkerboard.
+      // Also snap the editor canvas to the sprite's native dimensions.
+      function autoLoadInitial() {
+        const w = img.naturalWidth  || 24;
+        const h = img.naturalHeight || 24;
+        if (w !== spriteWidth || h !== spriteHeight) {
+          resizeEditorToSprite(w, h);
+        }
+        try {
+          ectx.drawImage(img, 0, 0, spriteWidth, spriteHeight);
+          originalData = ectx.getImageData(0, 0, spriteWidth, spriteHeight);
+        } catch (e) { /* noop */ }
+      }
+      // Establish the initial canvas size before the first load fires.
+      resizeEditorToSprite(spriteWidth, spriteHeight);
+      if (img.complete && img.naturalWidth) {
+        autoLoadInitial();
+      } else {
+        img.addEventListener('load', () => {
+          if (undoStack.length === 0) autoLoadInitial();
+        }, { once: true });
+      }
+    })();
+  </script>
+
+</body>
+</html>

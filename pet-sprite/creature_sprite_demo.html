@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Creature Sprite · State Machine Demo</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background: #d0d0d0;
+      font-family: "SF Pro Text", "Segoe UI", Arial, sans-serif;
+      font-size: 13px;
+      color: #1f1f1f;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 40px;
+      padding: 48px 24px;
+    }
+
+    h1 {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      color: #333;
+    }
+
+    /* ── Section cards ───────────────────────────────────────────────── */
+    .card {
+      background: #fafafd;
+      border-radius: 10px;
+      padding: 24px;
+      width: 360px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .card-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #888;
+    }
+
+    /* ── Main showcase ───────────────────────────────────────────────── */
+    .showcase {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .state-label {
+      font-size: 11px;
+      color: #888;
+      letter-spacing: 0.04em;
+    }
+
+    /* ── State buttons ───────────────────────────────────────────────── */
+    .btn-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+
+    button {
+      background: #ececef;
+      border: 1.5px solid transparent;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-family: inherit;
+      color: #333;
+      cursor: pointer;
+      transition: background 100ms, border-color 100ms;
+    }
+
+    button:hover { background: #e0e0e4; }
+
+    button.active {
+      background: #fff;
+      border-color: #888;
+      font-weight: 600;
+    }
+
+    /* ── Custom state builder ────────────────────────────────────────── */
+    .builder {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .builder label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: #555;
+    }
+
+    .builder input[type=range] { width: 140px; }
+    .builder input[type=text] {
+      width: 140px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 3px 6px;
+      font-size: 12px;
+      font-family: monospace;
+    }
+
+    .builder .val { min-width: 28px; text-align: right; font-family: monospace; }
+
+    /* ── Sessions list mock-up ───────────────────────────────────────── */
+    .sessions-list {
+      display: flex;
+      flex-direction: column;
+      background: #fafafd;
+      border-radius: 6px;
+      overflow: hidden;
+      width: 100%;
+    }
+
+    .session-row { padding: 8px; }
+
+    .session-row--selected { background: #f1f1f3; border-radius: 6px; }
+
+    .session-list-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+    }
+
+    .session-icon {
+      width: 16px;
+      height: 38px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      flex: 0 0 auto;
+    }
+
+    .session-dot {
+      width: 4px;
+      height: 4px;
+      background: #606060;
+      border-radius: 50%;
+      margin-top: 7px;
+    }
+
+    .session-main {
+      min-width: 0;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      padding-top: 2px;
+    }
+
+    .session-title {
+      font-size: 13px;
+      line-height: 1;
+      color: #1f1f1f;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .session-detail {
+      font-size: 11px;
+      color: #8c8c8c;
+    }
+
+    /* ── Event log ───────────────────────────────────────────────────── */
+    .log {
+      font-family: monospace;
+      font-size: 11px;
+      background: #f0f0f3;
+      border-radius: 6px;
+      padding: 10px 12px;
+      height: 88px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 2px;
+      color: #444;
+    }
+
+    .log-entry { white-space: nowrap; }
+    .log-entry .time { color: #aaa; margin-right: 6px; }
+    .log-entry .event { color: #555; }
+    .log-entry .detail { color: #888; }
+  </style>
+</head>
+<body>
+  <h1>creature-sprite · State Machine Demo</h1>
+
+  <!-- ── 1. Main showcase ──────────────────────────────────────────────── -->
+  <div class="card">
+    <span class="card-title">States</span>
+
+    <div class="showcase">
+      <!-- The Web Component — large display -->
+      <creature-sprite
+        id="main-sprite"
+        src="./sprite.png"
+        state="idle"
+        frame-width="399"
+        frame-height="417"
+        display-width="100"
+      ></creature-sprite>
+      <span class="state-label" id="state-label">state: idle</span>
+    </div>
+
+    <div class="btn-grid" id="state-buttons">
+      <button class="active" data-state="idle">idle</button>
+      <button data-state="thinking">thinking</button>
+      <button data-state="typing">typing</button>
+      <button data-state="alert">alert</button>
+      <button data-state="wave">wave ↩</button>
+      <button data-state="processing">processing</button>
+    </div>
+  </div>
+
+  <!-- ── 2. Custom state builder ───────────────────────────────────────── -->
+  <div class="card">
+    <span class="card-title">Custom State Builder</span>
+    <div class="builder">
+      <label>
+        Frames (csv)
+        <input type="text" id="custom-frames" value="0,1,2,3">
+      </label>
+      <label>
+        FPS
+        <input type="range" id="custom-fps" min="1" max="30" value="8">
+        <span class="val" id="fps-val">8</span>
+      </label>
+      <label>
+        Loop
+        <input type="checkbox" id="custom-loop" checked>
+      </label>
+    </div>
+    <button id="play-custom" style="grid-column: span 3">▶ Play custom state</button>
+  </div>
+
+  <!-- ── 3. Composable in a sessions list ──────────────────────────────── -->
+  <div class="card">
+    <span class="card-title">Used in Sessions List</span>
+    <div class="sessions-list">
+      <!-- Inactive rows -->
+      <div class="session-row">
+        <div class="session-list-item">
+          <div class="session-icon"><span class="session-dot"></span></div>
+          <div class="session-main">
+            <div class="session-title">Session title</div>
+            <div class="session-detail">2 days ago</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Active row with composable sprite at 16px -->
+      <div class="session-row session-row--selected">
+        <div class="session-list-item">
+          <div class="session-icon" style="padding-top:0">
+            <creature-sprite
+              id="list-sprite"
+              src="./sprite.png"
+              state="thinking"
+              frame-width="399"
+              frame-height="417"
+              display-width="16"
+              style="margin-top: 0"
+            ></creature-sprite>
+          </div>
+          <div class="session-main">
+            <div class="session-title">Session title</div>
+            <div class="session-detail">Just now</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="session-row">
+        <div class="session-list-item">
+          <div class="session-icon"><span class="session-dot"></span></div>
+          <div class="session-main">
+            <div class="session-title">Session title</div>
+            <div class="session-detail">Yesterday</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex; gap:6px; flex-wrap:wrap" id="list-buttons">
+      <button data-target="list-sprite" data-state="idle">idle</button>
+      <button data-target="list-sprite" data-state="thinking">thinking</button>
+      <button data-target="list-sprite" data-state="typing">typing</button>
+      <button data-target="list-sprite" data-state="wave">wave ↩</button>
+    </div>
+  </div>
+
+  <!-- ── 4. Programmatic mount example ─────────────────────────────────── -->
+  <div class="card">
+    <span class="card-title">Programmatic Mount (JS API)</span>
+    <div id="mount-target" style="display:flex; align-items:center; gap:12px; min-height:60px; background:#f0f0f3; border-radius:6px; padding:8px 12px;">
+      <span style="font-size:12px; color:#888">mounted via CreatureSprite.mount()</span>
+    </div>
+    <div style="display:flex; gap:6px;" id="mount-buttons">
+      <button data-target="mount-sprite" data-state="idle">idle</button>
+      <button data-target="mount-sprite" data-state="alert">alert</button>
+      <button data-target="mount-sprite" data-state="processing">processing</button>
+    </div>
+  </div>
+
+  <!-- ── 5. Event log ───────────────────────────────────────────────────── -->
+  <div class="card">
+    <span class="card-title">Event Log</span>
+    <div class="log" id="log"></div>
+  </div>
+
+  <!-- ── Script ────────────────────────────────────────────────────────── -->
+  <script type="module">
+    import { CreatureSprite } from './creature-sprite.js';
+
+    const mainSprite = document.getElementById('main-sprite');
+    const stateLabel = document.getElementById('state-label');
+
+    // ── State buttons (main) ────────────────────────────────────────────
+    document.getElementById('state-buttons').addEventListener('click', e => {
+      const btn = e.target.closest('[data-state]');
+      if (!btn) return;
+      mainSprite.play(btn.dataset.state);
+      document.querySelectorAll('#state-buttons button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+
+    mainSprite.addEventListener('statechange', e => {
+      stateLabel.textContent = `state: ${e.detail.to}`;
+      log('statechange', `main → ${e.detail.to}`);
+    });
+
+    mainSprite.addEventListener('stateend', e => {
+      log('stateend', `main: ${e.detail.state}`);
+    });
+
+    // ── Custom state builder ────────────────────────────────────────────
+    const fpsRange = document.getElementById('custom-fps');
+    fpsRange.addEventListener('input', () => {
+      document.getElementById('fps-val').textContent = fpsRange.value;
+    });
+
+    document.getElementById('play-custom').addEventListener('click', () => {
+      const frames = document.getElementById('custom-frames').value
+        .split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n));
+      const fps    = parseInt(fpsRange.value);
+      const loop   = document.getElementById('custom-loop').checked;
+      mainSprite.defineState('_custom', { frames, fps, loop, onEnd: loop ? undefined : 'idle' });
+      mainSprite.play('_custom');
+      stateLabel.textContent = `state: _custom`;
+      log('custom', `frames=[${frames}] fps=${fps} loop=${loop}`);
+    });
+
+    // ── List sprite buttons ─────────────────────────────────────────────
+    document.getElementById('list-buttons').addEventListener('click', e => {
+      const btn = e.target.closest('[data-state]');
+      if (!btn) return;
+      document.getElementById(btn.dataset.target).play(btn.dataset.state);
+    });
+
+    // ── Programmatic mount ──────────────────────────────────────────────
+    const mountTarget = document.getElementById('mount-target');
+    mountTarget.querySelector('span').remove();
+
+    const mounted = CreatureSprite.mount(mountTarget, {
+      src: './sprite.png',
+      state: 'idle',
+      displayWidth: 64,
+      style: { marginRight: '8px' }
+    });
+
+    // Expose globally so mount-buttons can reach it
+    window._mountSprite = mounted;
+
+    document.getElementById('mount-buttons').addEventListener('click', e => {
+      const btn = e.target.closest('[data-state]');
+      if (!btn) return;
+      window._mountSprite.play(btn.dataset.state);
+      log('mount', `→ ${btn.dataset.state}`);
+    });
+
+    mounted.addEventListener('statechange', e => log('statechange', `mounted → ${e.detail.to}`));
+
+    // ── Event log ───────────────────────────────────────────────────────
+    function log(event, detail) {
+      const container = document.getElementById('log');
+      const now = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      entry.innerHTML = `<span class="time">${now}</span><span class="event">${event}</span> <span class="detail">${detail}</span>`;
+      container.prepend(entry);
+      // Keep last 30 lines
+      while (container.children.length > 30) container.lastChild.remove();
+    }
+  </script>
+</body>
+</html>

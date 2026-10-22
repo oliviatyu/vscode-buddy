@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VS Code Footer Game</title>
+  <link rel="stylesheet" href="./game.css">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      margin: 0;
+      display: grid;
+      align-items: center;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main { width: min(100% - 48px, 1254px); margin: 48px auto; }
+    button { font-family: inherit; cursor: pointer; }
+    a { color: inherit; }
+    a:focus-visible, button:focus-visible {
+      outline: 2px solid var(--home-accent);
+      outline-offset: 3px;
+    }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    .jump-icon { width: 16px; height: 16px; }
+  </style>
+  <script src="./game.js" defer></script>
+</head>
+<body class="home-v2">
+  <main aria-label="Footer game prototype">
+    <div class="community-footer">
+      <div class="release-runner" data-release-runner data-state="idle" role="group" tabindex="0" hidden
+        aria-label="VS Code release runner game" aria-describedby="release-runner-instructions">
+        <div class="release-runner-hud">
+          <button class="release-runner-jump" type="button" data-runner-jump aria-label="Jump" title="Jump" hidden>
+            <svg class="jump-icon" viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M8 13V3M3 8l5-5 5 5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+          </button>
+          <button class="release-runner-pause" type="button" data-runner-pause aria-label="Pause game" title="Pause game" hidden>
+            <span aria-hidden="true"></span>
+          </button>
+        </div>
+        <button class="release-runner-action" type="button" data-runner-action>
+          <span class="release-runner-play" aria-hidden="true"></span>
+          <span data-runner-action-label>Start</span>
+        </button>
+        <div class="release-runner-stage" data-runner-stage>
+          <div class="release-runner-labels" data-runner-labels></div>
+          <div class="release-runner-obstacles" data-runner-obstacles aria-hidden="true"></div>
+          <span class="release-runner-player" data-runner-player aria-hidden="true">
+            <img src="./assets/release-runner-player.svg" alt="" width="24" height="24">
+          </span>
+          <span class="release-runner-ground" aria-hidden="true"></span>
+        </div>
+        <p class="sr-only" id="release-runner-instructions" data-runner-instructions>
+          Before starting, while paused, or after game over, use Left Arrow, Right Arrow, Home, or End to browse
+          releases, drag the game area, or use Tab to focus a release notes link. During the game, use Space,
+          Up Arrow, or W to jump. Press Enter to open the release notes beneath the character in a new tab.
+          Press Escape to pause.
+        </p>
+        <p class="sr-only" aria-live="polite" aria-atomic="true" data-runner-announcer></p>
+      </div>
+      <p class="release-runner-meta">Our VS Code pet needs a name! Win a prize if your name is chosen.</p>
+      <noscript>
+        <p>Enable JavaScript to play the footer game, or
+          <a href="https://code.visualstudio.com/updates">browse VS Code release notes</a>.</p>
+      </noscript>
+    </div>
+  </main>
+</body>
+</html>

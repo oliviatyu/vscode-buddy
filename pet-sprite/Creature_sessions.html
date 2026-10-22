@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Creature Sessions</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: #ececef;
+      font-family: "SF Pro Text", "Segoe UI", Arial, sans-serif;
+      color: #1f1f1f;
+    }
+
+    .sessions-list {
+      display: flex;
+      flex-direction: column;
+      width: 280px;
+      background: #fafafd;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .session-row {
+      padding: 8px;
+    }
+
+    .session-row--selected {
+      background: #f1f1f3;
+      border-radius: 6px;
+    }
+
+    .session-list-item {
+      width: 100%;
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      overflow: hidden;
+    }
+
+    .session-icon {
+      width: 16px;
+      height: 38px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      flex: 0 0 auto;
+      padding-top: 0;
+    }
+
+    .creature-canvas {
+      width: 16px;
+      height: 16px;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      display: block;
+    }
+
+    .session-dot {
+      width: 4px;
+      height: 4px;
+      background: #606060;
+      border-radius: 50%;
+      display: block;
+      margin-top: 7px;
+    }
+
+    .session-main {
+      min-width: 0;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      height: 38px;
+      padding-top: 2px;
+    }
+
+    .session-title-row {
+      width: 100%;
+      display: flex;
+      align-items: center;
+    }
+
+    .session-title {
+      margin: 0;
+      min-width: 0;
+      flex: 1 0 0;
+      font-size: 13px;
+      line-height: 1;
+      font-weight: 400;
+      color: #1f1f1f;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .session-details-row {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .detail {
+      margin: 0;
+      font-size: 11px;
+      line-height: 1;
+      color: #8c8c8c;
+      white-space: nowrap;
+    }
+
+    .folder {
+      width: 12px;
+      height: 12px;
+      color: #8c8c8c;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transform: translateY(-0.5px);
+    }
+
+    .folder svg {
+      width: 12px;
+      height: 12px;
+      display: block;
+    }
+
+    .folder img {
+      width: 12px;
+      height: 12px;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="sessions-list">
+    <div class="session-row">
+      <div class="session-list-item" data-name="Session List Item">
+        <div class="session-icon" data-name="session-icon">
+          <span class="session-dot" aria-label="session status dot"></span>
+        </div>
+
+        <div class="session-main" data-name="session-main">
+          <div class="session-title-row" data-name="session-title-row">
+            <p class="session-title">Session title</p>
+          </div>
+
+          <div class="session-details-row" data-name="session-details-row">
+            <span class="folder" aria-hidden="true">
+              <img src="https://www.figma.com/api/mcp/asset/e7535d56-dc73-4b52-a15b-8d77d40077f9" alt="" width="12" height="12">
+            </span>
+            <p class="detail">&middot;</p>
+            <p class="detail">2 days ago</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="session-row session-row--selected">
+      <div class="session-list-item" data-name="Session List Item">
+        <div class="session-icon" data-name="session-icon">
+          <canvas class="creature-canvas" width="12" height="12" aria-label="sleep creature icon"></canvas>
+        </div>
+
+        <div class="session-main" data-name="session-main">
+          <div class="session-title-row" data-name="session-title-row">
+            <p class="session-title">Session title</p>
+          </div>
+
+          <div class="session-details-row" data-name="session-details-row">
+            <span class="folder" aria-hidden="true">
+              <img src="https://www.figma.com/api/mcp/asset/e7535d56-dc73-4b52-a15b-8d77d40077f9" alt="" width="12" height="12">
+            </span>
+            <p class="detail">&middot;</p>
+            <p class="detail">2 days ago</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="session-row">
+      <div class="session-list-item" data-name="Session List Item">
+        <div class="session-icon" data-name="session-icon">
+          <span class="session-dot" aria-label="session status dot"></span>
+        </div>
+
+        <div class="session-main" data-name="session-main">
+          <div class="session-title-row" data-name="session-title-row">
+            <p class="session-title">Session title</p>
+          </div>
+
+          <div class="session-details-row" data-name="session-details-row">
+            <span class="folder" aria-hidden="true">
+              <img src="https://www.figma.com/api/mcp/asset/e7535d56-dc73-4b52-a15b-8d77d40077f9" alt="" width="12" height="12">
+            </span>
+            <p class="detail">&middot;</p>
+            <p class="detail">2 days ago</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="session-row">
+      <div class="session-list-item" data-name="Session List Item">
+        <div class="session-icon" data-name="session-icon">
+          <span class="session-dot" aria-label="session status dot"></span>
+        </div>
+
+        <div class="session-main" data-name="session-main">
+          <div class="session-title-row" data-name="session-title-row">
+            <p class="session-title">Session title</p>
+          </div>
+
+          <div class="session-details-row" data-name="session-details-row">
+            <span class="folder" aria-hidden="true">
+              <img src="https://www.figma.com/api/mcp/asset/e7535d56-dc73-4b52-a15b-8d77d40077f9" alt="" width="12" height="12">
+            </span>
+            <p class="detail">&middot;</p>
+            <p class="detail">2 days ago</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvases = document.querySelectorAll('.creature-canvas');
+
+    // creature_sleep sprite (12x12): 0 white, 1 black, 2 gray
+    const SLEEP = [
+      [0,0,0,0,0,0,0,0,0,0,0,0],
+      [0,0,0,1,0,0,0,0,1,0,0,0],
+      [0,0,1,0,1,0,0,1,0,1,0,0],
+      [0,0,0,0,0,1,1,0,0,0,0,0],
+      [0,0,0,0,1,2,2,1,0,0,0,0],
+      [0,0,0,1,2,0,0,0,1,0,0,0],
+      [0,0,1,2,0,0,0,0,0,1,0,0],
+      [0,1,2,0,0,0,0,0,0,0,1,0],
+      [1,2,0,1,1,0,0,1,1,0,0,1],
+      [1,2,0,0,0,0,0,0,0,0,0,1],
+      [1,2,2,2,0,0,0,0,0,0,0,1],
+      [0,1,1,1,1,1,1,1,1,1,1,0]
+    ];
+
+    const COLORS = ['#ffffff', '#000000', '#CBCCCE'];
+
+    function draw(ctx) {
+      ctx.clearRect(0, 0, 12, 12);
+      for (let y = 0; y < 12; y++) {
+        for (let x = 0; x < 12; x++) {
+          const v = SLEEP[y][x];
+          if (v === 0) continue; // transparent background
+          ctx.fillStyle = COLORS[v];
+          ctx.fillRect(x, y, 1, 1);
+        }
+      }
+    }
+
+    canvases.forEach((canvas) => {
+      const ctx = canvas.getContext('2d');
+      draw(ctx);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tamagotchi – Default</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: #d0d0d0;
+      font-family: monospace;
+    }
+
+    canvas {
+      /* Render as a crisp 240×240 block from a 12×12 source */
+      width: 240px;
+      height: 240px;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      border: 2px solid #888;
+      background: #ffffff;
+    }
+
+    p {
+      margin-top: 12px;
+      font-size: 13px;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="creature" width="12" height="12"></canvas>
+  <p>creature_default · 12 × 12 px</p>
+
+  <script>
+    const canvas = document.getElementById('creature');
+    const ctx    = canvas.getContext('2d');
+
+    // ─── 12×12 sprite data ────────────────────────────────────────────────────
+    //  0 = white (background)   1 = black (ink)
+    //
+    //  Everything shifted down 1 row so the bottom bar sits on row 11 (the
+    //  very last pixel row).  The freed row 0 extends each diagonal arm one
+    //  more step outward, reaching the top corners of the 12×12 grid.
+    //
+    //  Columns:   0  1  2  3  4  5  6  7  8  9  10 11
+    //
+    //   row  0    ■  .  .  .  .  .  .  .  .  .  .  ■   ← 1-px arm tips (cols 0, 11)
+    //   row  1    .  ■  .  .  .  .  .  .  .  .  ■  .   ← 1-px arms inward
+    //   row  2    .  .  ■  .  .  .  .  .  .  ■  .  .   ← 1-px arms inward
+    //   row  3    .  .  .  ■  .  .  .  .  ■  .  .  .   ← 1-px arms inward
+    //   row  4    .  .  .  .  ■  ■  ■  ■  .  .  .  .   ← centre cross (4 px)
+    //   row  5    .  .  .  ■  .  .  .  .  ■  .  .  .   ← 1-px outline (cols 3, 8)
+    //   row  6    .  .  ■  .  .  .  .  .  .  ■  .  .   ← 1-px outline (cols 2, 9)
+    //   row  7    .  ■  .  .  .  .  .  .  .  .  ■  .   ← 1-px outline (cols 1, 10)
+    //   row  8    ■  .  .  .  ■  .  .  ■  .  .  .  ■   ← body walls + eyes OPEN
+    //   row  9    ■  .  .  .  .  .  .  .  .  .  .  ■   ← body sides
+    //   row 10    ■  .  .  .  .  .  .  .  .  .  .  ■   ← body sides
+    //   row 11    .  ■  ■  ■  ■  ■  ■  ■  ■  ■  ■  .   ← flat bottom bar (corners removed)
+
+    const EYES_OPEN = [
+      [0,0,1,0,0,0,0,0,0,1,0,0], //  0
+      [0,0,0,1,0,0,0,0,1,0,0,0], //  1
+      [0,0,0,0,1,0,0,1,0,0,0,0], //  2
+      [0,0,0,0,0,1,1,0,0,0,0,0], //  3 – grey at col 4 (left of cross)
+      [0,0,0,0,1,2,2,1,0,0,0,0], //  4 – grey at col 3
+      [0,0,0,1,2,0,0,0,1,0,0,0], //  5 – grey at col 2
+      [0,0,1,2,0,0,0,0,0,1,0,0], //  6 – grey at col 1
+      [0,1,2,0,0,0,0,0,0,0,1,0], //  7 – grey at col 0
+      [1,2,0,0,0,1,0,0,1,0,0,1], //  8 – body walls + eyes OPEN + grey at col 1
+      [1,2,0,0,0,0,0,0,0,0,0,1], //  9 – grey at col 1
+      [1,2,2,2,0,0,0,0,0,0,0,1], // 10
+      [0,1,1,1,1,1,1,1,1,1,1,0], // 11
+    ];
+
+    // During a blink the two eye pixels (cols 4 & 7 on row 8) are cleared
+    const EYES_CLOSED = [
+      [0,0,1,0,0,0,0,0,0,1,0,0], //  0
+      [0,0,0,1,0,0,0,0,1,0,0,0], //  1
+      [0,0,0,0,1,0,0,1,0,0,0,0], //  2
+      [0,0,0,0,0,1,1,0,0,0,0,0], //  3
+      [0,0,0,0,1,2,2,1,0,0,0,0], //  4
+      [0,0,0,1,2,0,0,0,1,0,0,0], //  5
+      [0,0,1,2,0,0,0,0,0,1,0,0], //  6
+      [0,1,2,0,0,0,0,0,0,0,1,0], //  7
+      [1,2,0,0,0,0,0,0,0,0,0,1], //  8 – eyes CLOSED
+      [1,2,0,0,0,0,0,0,0,0,0,1], //  9
+      [1,2,2,2,0,0,0,0,0,0,0,1], // 10
+      [0,1,1,1,1,1,1,1,1,1,1,0], // 11
+    ];
+
+    // ─── Rendering ────────────────────────────────────────────────────────────
+
+    function draw(sprite) {
+      const colors = ['#ffffff', '#000000', '#CBCCCE'];
+      for (let y = 0; y < 12; y++) {
+        for (let x = 0; x < 12; x++) {
+          ctx.fillStyle = colors[sprite[y][x]];
+          ctx.fillRect(x, y, 1, 1);
+        }
+      }
+    }
+
+    // ─── Blink animation ──────────────────────────────────────────────────────
+    //  Pattern: eyes open (2.8 s) → blink shut (150 ms) → repeat
+
+    function blink() {
+      draw(EYES_OPEN);
+      setTimeout(() => {
+        draw(EYES_CLOSED);
+        setTimeout(blink, 150);
+      }, 2800);
+    }
+
+    blink();
+  </script>
+
+</body>
+</html>
